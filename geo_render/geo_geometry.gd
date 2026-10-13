@@ -11,6 +11,9 @@ extends RefCounted
 ## Built once per shape (and cached on it), then shared by every GeoFigure that
 ## draws that shape.
 
+## Surface ids range from 0 to MAX_SURFACE.
+const MAX_SURFACE := 2
+
 ## Vertex positions. Vertices aren't shared between faces, so each face can have
 ## its own normals and UVs.
 var positions := PackedVector3Array()
@@ -23,6 +26,11 @@ var uvs := PackedVector2Array()
 var vertex_faces := PackedInt32Array()
 ## One outward normal per face, used for back-face culling.
 var face_normals := PackedVector3Array()
+## Which surface of the shape each face belongs to. Pixel outlines can be drawn
+## between different surfaces (e.g. the sides of a box), but not between the
+## faces of one curved surface. Faces that can be visible side by side must
+## have different surfaces; opposite faces of a box can share one.
+var face_surfaces := PackedInt32Array()
 ## Triangle indices (into positions) for each face.
 var face_indices: Array[PackedInt32Array] = []
 ## The point used to depth-sort this shape against other shapes: the center of
@@ -36,16 +44,18 @@ func face_count() -> int:
 
 ## Adds a convex, planar face. Its points must go around its edge in order.
 func add_face(points: PackedVector3Array, point_normals: PackedVector3Array,
-		point_uvs: PackedVector2Array, face_normal: Vector3) -> void:
+		point_uvs: PackedVector2Array, face_normal: Vector3, surface := 0) -> void:
 	assert(points.size() >= 3)
 	assert(point_normals.size() == points.size())
 	assert(point_uvs.size() == points.size())
+	assert(surface >= 0 and surface <= MAX_SURFACE)
 	var base := positions.size()
 	var face := face_normals.size()
 	positions.append_array(points)
 	normals.append_array(point_normals)
 	uvs.append_array(point_uvs)
 	face_normals.append(face_normal)
+	face_surfaces.append(surface)
 
 	# Triangulate as a fan from the first point.
 	var indices := PackedInt32Array()
@@ -61,11 +71,11 @@ func add_face(points: PackedVector3Array, point_normals: PackedVector3Array,
 
 ## Adds a convex, planar face whose vertex normals all equal its face normal.
 func add_flat_face(points: PackedVector3Array, point_uvs: PackedVector2Array,
-		face_normal: Vector3) -> void:
+		face_normal: Vector3, surface := 0) -> void:
 	var point_normals := PackedVector3Array()
 	point_normals.resize(points.size())
 	point_normals.fill(face_normal)
-	add_face(points, point_normals, point_uvs, face_normal)
+	add_face(points, point_normals, point_uvs, face_normal, surface)
 
 
 ## Call once all faces have been added.

@@ -64,7 +64,7 @@ func _build_geometry(geometry: GeoGeometry) -> void:
 			points.append(direction * radius)
 			var flat := Vector2(direction.x, direction.z).normalized()
 			uvs.append(flat * 0.5 + Vector2(0.5, 0.5))
-		geometry.add_flat_face(points, uvs, Vector3.UP) # Down, in this space.
+		geometry.add_flat_face(points, uvs, Vector3.UP, 1) # Down, in this space.
 
 
 func _direction(corner: Vector2i, sweep: float) -> Vector3:

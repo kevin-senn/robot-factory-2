@@ -1,74 +1,110 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://co00exuvca2bc"]
 
-[ext_resource type="Script" path="res://demo/geo_demo.gd" id="1_demo"]
-[ext_resource type="Script" path="res://geo_render/geo_figure.gd" id="2_figure"]
-[ext_resource type="Resource" path="res://demo/robot.tres" id="3_robot"]
-[ext_resource type="Shader" path="res://geo_render/geo_shading_example.gdshader" id="4_shader"]
-[ext_resource type="Resource" path="res://demo/head_on_camera.tres" id="5_head_on"]
+[ext_resource type="Script" uid="uid://drkpra7a6rr4m" path="res://demo/geo_demo.gd" id="1_demo"]
+[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://geo_render/geo_figure.gd" id="2_figure"]
+[ext_resource type="Resource" uid="uid://b1kbdb28bwsat" path="res://demo/robot.tres" id="3_robot"]
+[ext_resource type="Resource" path="res://demo/head_on_camera.tres" id="4_head_on"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_lit"]
-shader = ExtResource("4_shader")
-
-[node name="GeoDemo" type="Node2D"]
+[node name="GeoDemo" type="Node2D" unique_id=124416184]
 script = ExtResource("1_demo")
 
-[node name="Robot" type="Node2D" parent="."]
-position = Vector2(160, 400)
-scale = Vector2(2.5, 2.5)
+[node name="ElevatedY0Static" type="Node2D" parent="." unique_id=1742483530]
+position = Vector2(144, 330)
+scale = Vector2(3, 3)
 script = ExtResource("2_figure")
 shape = ExtResource("3_robot")
 
-[node name="RotatedRobot" type="Node2D" parent="."]
-position = Vector2(420, 400)
-scale = Vector2(2.5, 2.5)
-script = ExtResource("2_figure")
-shape = ExtResource("3_robot")
-model_rotation_degrees = Vector3(0, -45, 0)
-
-[node name="SpinningRobot" type="Node2D" parent="."]
-material = SubResource("ShaderMaterial_lit")
-position = Vector2(700, 400)
-scale = Vector2(2.5, 2.5)
+[node name="ElevatedY0Spinning" type="Node2D" parent="." unique_id=37497803 groups=["spinning"]]
+position = Vector2(432, 330)
+scale = Vector2(3, 3)
 script = ExtResource("2_figure")
 shape = ExtResource("3_robot")
 
-[node name="HeadOnRobot" type="Node2D" parent="."]
-material = SubResource("ShaderMaterial_lit")
-position = Vector2(980, 400)
-scale = Vector2(2.5, 2.5)
+[node name="ElevatedYMinus60Static" type="Node2D" parent="." unique_id=960311210]
+position = Vector2(720, 330)
+scale = Vector2(3, 3)
 script = ExtResource("2_figure")
 shape = ExtResource("3_robot")
-camera = ExtResource("5_head_on")
-model_rotation_degrees = Vector3(0, -30, 0)
+model_rotation_degrees = Vector3(0, -60, 0)
 
-[node name="PlainLabel" type="Label" parent="."]
-offset_left = 60.0
-offset_top = 420.0
-offset_right = 260.0
-offset_bottom = 443.0
-text = "Plain"
+[node name="ElevatedYMinus60Spinning" type="Node2D" parent="." unique_id=858189889 groups=["spinning"]]
+position = Vector2(1008, 330)
+scale = Vector2(3, 3)
+script = ExtResource("2_figure")
+shape = ExtResource("3_robot")
+model_rotation_degrees = Vector3(0, -60, 0)
+
+[node name="HeadOnY0Static" type="Node2D" parent="." unique_id=2105676539]
+position = Vector2(144, 630)
+scale = Vector2(3, 3)
+script = ExtResource("2_figure")
+shape = ExtResource("3_robot")
+camera = ExtResource("4_head_on")
+
+[node name="HeadOnY0Spinning" type="Node2D" parent="." unique_id=277712607 groups=["spinning"]]
+position = Vector2(432, 630)
+scale = Vector2(3, 3)
+script = ExtResource("2_figure")
+shape = ExtResource("3_robot")
+camera = ExtResource("4_head_on")
+
+[node name="HeadOnYMinus60Static" type="Node2D" parent="." unique_id=574278441]
+position = Vector2(720, 630)
+scale = Vector2(3, 3)
+script = ExtResource("2_figure")
+shape = ExtResource("3_robot")
+camera = ExtResource("4_head_on")
+model_rotation_degrees = Vector3(0, -60, 0)
+
+[node name="HeadOnYMinus60Spinning" type="Node2D" parent="." unique_id=421853332 groups=["spinning"]]
+position = Vector2(1008, 630)
+scale = Vector2(3, 3)
+script = ExtResource("2_figure")
+shape = ExtResource("3_robot")
+camera = ExtResource("4_head_on")
+model_rotation_degrees = Vector3(0, -60, 0)
+
+[node name="Y0StaticLabel" type="Label" parent="." unique_id=392593728]
+offset_top = 4.0
+offset_right = 288.0
+offset_bottom = 27.0
+text = "Y 0°, static"
 horizontal_alignment = 1
 
-[node name="RotatedLabel" type="Label" parent="."]
-offset_left = 320.0
-offset_top = 420.0
-offset_right = 520.0
-offset_bottom = 443.0
-text = "Y rotation -45°"
+[node name="Y0SpinningLabel" type="Label" parent="." unique_id=989769622]
+offset_left = 288.0
+offset_top = 4.0
+offset_right = 576.0
+offset_bottom = 27.0
+text = "Y 0°, spinning"
 horizontal_alignment = 1
 
-[node name="SpinningLabel" type="Label" parent="."]
-offset_left = 600.0
-offset_top = 420.0
-offset_right = 800.0
-offset_bottom = 443.0
-text = "Lit, spinning"
+[node name="YMinus60StaticLabel" type="Label" parent="." unique_id=1289298526]
+offset_left = 576.0
+offset_top = 4.0
+offset_right = 864.0
+offset_bottom = 27.0
+text = "Y -60°, static"
 horizontal_alignment = 1
 
-[node name="HeadOnLabel" type="Label" parent="."]
-offset_left = 880.0
-offset_top = 420.0
-offset_right = 1080.0
-offset_bottom = 443.0
-text = "Lit, 0° elevation"
+[node name="YMinus60SpinningLabel" type="Label" parent="." unique_id=1687107452]
+offset_left = 864.0
+offset_top = 4.0
+offset_right = 1152.0
+offset_bottom = 27.0
+text = "Y -60°, spinning"
 horizontal_alignment = 1
+
+[node name="ElevatedLabel" type="Label" parent="." unique_id=1360249284]
+offset_left = 8.0
+offset_top = 36.0
+offset_right = 108.0
+offset_bottom = 59.0
+text = "Elevated"
+
+[node name="HeadOnLabel" type="Label" parent="." unique_id=312978280]
+offset_left = 8.0
+offset_top = 336.0
+offset_right = 108.0
+offset_bottom = 359.0
+text = "Head-on"

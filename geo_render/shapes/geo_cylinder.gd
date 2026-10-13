@@ -49,4 +49,4 @@ func _build_geometry(geometry: GeoGeometry) -> void:
 			var d := directions[i]
 			points.append(center + d * radius)
 			uvs.append(Vector2(d.x, d.z) * 0.5 + Vector2(0.5, 0.5))
-		geometry.add_flat_face(points, uvs, cap[1])
+		geometry.add_flat_face(points, uvs, cap[1], 1)

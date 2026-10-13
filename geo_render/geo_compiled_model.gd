@@ -7,11 +7,14 @@ extends RefCounted
 ##
 ## The vertices of every shape are concatenated, in shape order, into a single
 ## mesh surface. Each GeoFigure gets its own copy of that surface, and each
-## redraw it overwrites the positions, the normals, and the index buffer (which
-## picks the faces to draw, in order) in place. The layout never changes, so the
-## mesh never has to be rebuilt.
+## redraw it overwrites the positions, the normals, the draw ranks, and the index
+## buffer (which picks the faces to draw, in order) in place. The layout never
+## changes, so the mesh never has to be rebuilt.
 
 const _MAX_DEPTH := 64
+## Pixelated figures encode (draw rank, surface) per pixel in 8 bits, which
+## limits how many shapes they can tell apart.
+const MAX_DRAWABLE_SHAPES := 255 / (GeoGeometry.MAX_SURFACE + 1) - 1
 const FORMAT := (Mesh.ARRAY_CUSTOM_RGB_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT) \
 		| (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT)
 
@@ -22,6 +25,12 @@ var geometries: Array[GeoGeometry] = []
 var depth_biases := PackedFloat32Array()
 ## Each shape's distance from its origin to its farthest vertex.
 var radii := PackedFloat32Array()
+## Each shape's first vertex in the combined vertex arrays, and its vertex count.
+var vertex_offsets := PackedInt32Array()
+var vertex_counts := PackedInt32Array()
+## Distance from the root's origin to the farthest vertex in the rest pose.
+## (Overriding positions can move shapes past it.)
+var bounding_radius := 0.0
 ## Indices of the shapes that have faces and aren't hidden.
 var drawable_shapes := PackedInt32Array()
 ## Shape name -> shape index. If names repeat, the first shape wins.
@@ -31,8 +40,10 @@ var vertex_count := 0
 ## RenderingServer surface data (see RenderingServer.mesh_add_surface()), or
 ## empty if there's nothing to draw. Its vertex and index data are placeholders.
 var surface: Dictionary = {}
-## Byte offset of the normals (CUSTOM0) within each vertex's attribute data.
+## Byte offsets of the normal (CUSTOM0.xyz) and the draw rank (CUSTOM1.z) within
+## each vertex's attribute data.
 var normal_offset := 0
+var rank_offset := 0
 ## Bytes of attribute data per vertex.
 var attribute_stride := 0
 ## Per shape, an Array with each face's triangle indices, offset into the
@@ -52,7 +63,10 @@ var _face_indices: Array[Array] = []
 
 
 func _init(root: GeoShape) -> void:
-	_add_shape(root, -1, false, 0)
+	_add_shape(root, -1, false, 0, 0.0)
+	if drawable_shapes.size() > MAX_DRAWABLE_SHAPES:
+		push_warning(("GeoShape tree has %d visible shapes with faces; pixel outlines"
+				+ " support up to %d.") % [drawable_shapes.size(), MAX_DRAWABLE_SHAPES])
 	if drawable_shapes.is_empty():
 		return
 
@@ -75,6 +89,8 @@ func _init(root: GeoShape) -> void:
 	var format: int = surface.format
 	normal_offset = RenderingServer.mesh_surface_get_format_offset(
 			format, vertex_count, Mesh.ARRAY_CUSTOM0)
+	rank_offset = RenderingServer.mesh_surface_get_format_offset(
+			format, vertex_count, Mesh.ARRAY_CUSTOM1) + 8
 	attribute_stride = RenderingServer.mesh_surface_get_format_attribute_stride(
 			format, vertex_count)
 	var index_stride := RenderingServer.mesh_surface_get_format_index_stride(
@@ -87,7 +103,9 @@ func _init(root: GeoShape) -> void:
 		face_index_bytes.append(shape_bytes)
 
 
-func _add_shape(shape: GeoShape, parent: int, parent_hidden: bool, depth: int) -> void:
+# parent_reach is the farthest the parent's origin can be from the root's.
+func _add_shape(shape: GeoShape, parent: int, parent_hidden: bool, depth: int,
+		parent_reach: float) -> void:
 	if depth > _MAX_DEPTH:
 		push_error("GeoShape tree is too deep. Does a shape contain itself?")
 		return
@@ -108,6 +126,10 @@ func _add_shape(shape: GeoShape, parent: int, parent_hidden: bool, depth: int) -
 	for p in geometry.positions:
 		radius = maxf(radius, p.length())
 	radii.append(radius)
+	var reach := parent_reach + shape.position.length()
+	bounding_radius = maxf(bounding_radius, reach + radius)
+	vertex_offsets.append(vertex_count)
+	vertex_counts.append(geometry.positions.size())
 
 	var faces: Array[PackedInt32Array] = []
 	for local_indices in geometry.face_indices:
@@ -125,15 +147,16 @@ func _add_shape(shape: GeoShape, parent: int, parent_hidden: bool, depth: int) -
 	shape_colors.fill(shape.color)
 	_colors.append_array(shape_colors)
 	for face in geometry.vertex_faces:
+		# The draw rank (z) is filled in by GeoFigure each redraw.
 		_custom1.append(index)
 		_custom1.append(face)
 		_custom1.append(0.0)
-		_custom1.append(0.0)
+		_custom1.append(geometry.face_surfaces[face])
 	vertex_count += geometry.positions.size()
 
 	for child in shape.children:
 		if child:
-			_add_shape(child, index, hidden, depth + 1)
+			_add_shape(child, index, hidden, depth + 1, reach)
 
 
 static func _encode_indices(indices: PackedInt32Array, stride: int) -> PackedByteArray:

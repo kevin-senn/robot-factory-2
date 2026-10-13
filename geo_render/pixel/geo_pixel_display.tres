@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://dma14epveh157"]
+
+[ext_resource type="Shader" uid="uid://ctjet1u6xhdt2" path="res://geo_render/pixel/geo_pixel_display.gdshader" id="1_shader"]
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/outline_darkening = 0.5
+shader_parameter/outline_creases = true

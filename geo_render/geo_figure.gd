@@ -11,8 +11,14 @@ extends Node2D
 ## only happens within a figure; order figures against each other as you would
 ## any other CanvasItems (e.g. with y_sort_enabled on their parent).
 ##
-## Set a ShaderMaterial as this node's material to shade the shapes. The mesh
-## provides, per vertex:
+## With a pixel_material (the default), the figure is pixelated: its mesh is
+## drawn at one texel per art pixel into GeoPixelAtlas, lit by
+## geo_pixel_lighting.gdshader, and the figure draws that as a sprite with
+## pixel_material. See geo_pixel_display.gdshader.
+##
+## With no pixel_material, the mesh is drawn directly, with this node's
+## material. Set a ShaderMaterial there to shade the shapes. Either way, the
+## mesh provides, per vertex:
 ## - VERTEX: the projected position.
 ## - COLOR: the shape's color (times modulate, as usual).
 ## - UV: face-local coordinates, from 0 to 1 across each face.
@@ -21,7 +27,8 @@ extends Node2D
 ##   fragment() with a varying.
 ## - CUSTOM1.x: the index of the shape (depth-first, parents before children).
 ## - CUSTOM1.y: the index of the face within the shape.
-## - CUSTOM1.zw: unused for now.
+## - CUSTOM1.z: the shape's position in this redraw's back-to-front draw order.
+## - CUSTOM1.w: the face's surface (see GeoGeometry.face_surfaces).
 ## See geo_shading_example.gdshader.
 
 ## Faces must point at least this much toward the camera to be drawn.
@@ -55,13 +62,29 @@ const _FACING_EPSILON := 0.0001
 		model_rotation_degrees = value
 		queue_redraw()
 
+## Draws the figure pixelated, with this material (normally
+## geo_render/pixel/geo_pixel_display.tres, shared by all figures).
+## If null, the figure is drawn as smooth geometry instead, with material.
+@export var pixel_material: ShaderMaterial = preload("res://geo_render/pixel/geo_pixel_display.tres"):
+	set(value):
+		pixel_material = value
+		queue_redraw()
+
 # This figure's copy of the model's mesh, updated in place each redraw.
 var _mesh := RenderingServer.mesh_create()
 var _mesh_model: GeoCompiledModel
-# The mesh's attribute data. Each redraw, the new normals are copied into it.
-# (Using Images to copy byte ranges keeps the work in native code.)
+# The mesh's attribute data, as an Image of 32-bit floats, one row per vertex.
+# Each redraw, the new normals and draw ranks are copied into it. (Using Images
+# to copy ranges of bytes keeps the work in native code.)
 var _attributes: Image
 var _normals_image := Image.new()
+
+# When pixelated, this figure's cell in GeoPixelAtlas, and the canvas item that
+# draws the mesh there.
+var _atlas_cell := Rect2i()
+var _atlas_item := RID()
+# The material last set on this node's canvas item.
+var _applied_material := RID()
 
 # Per-figure overrides of shapes' transforms, by shape name.
 var _position_overrides: Dictionary[StringName, Vector3] = {}
@@ -78,8 +101,16 @@ func _init() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_PREDELETE:
-		RenderingServer.free_rid(_mesh)
+	match what:
+		NOTIFICATION_EXIT_TREE:
+			_release_atlas_cell()
+		NOTIFICATION_VISIBILITY_CHANGED:
+			if _atlas_item.is_valid():
+				RenderingServer.canvas_item_set_visible(_atlas_item, is_visible_in_tree())
+				GeoPixelAtlas.request_update()
+		NOTIFICATION_PREDELETE:
+			_release_atlas_cell()
+			RenderingServer.free_rid(_mesh)
 
 
 ## Overrides the position (relative to its parent) of the shape with the given
@@ -136,11 +167,39 @@ func _set_model(model: GeoCompiledModel) -> void:
 		_attributes = null
 		return
 	RenderingServer.mesh_add_surface(_mesh, model.surface)
-	_attributes = Image.create_from_data(model.attribute_stride, model.vertex_count, false,
-			Image.FORMAT_L8, model.surface.attribute_data)
+	_attributes = Image.create_from_data(model.attribute_stride / 4, model.vertex_count, false,
+			Image.FORMAT_RF, model.surface.attribute_data)
+
+
+func _set(property: StringName, _value: Variant) -> bool:
+	if property == &"material":
+		# CanvasItem will set its material on the canvas item, so _draw() must
+		# set it again.
+		_applied_material = RID()
+		queue_redraw()
+	return false
+
+
+func _release_atlas_cell() -> void:
+	if _atlas_item.is_valid():
+		RenderingServer.free_rid(_atlas_item)
+		_atlas_item = RID()
+	if _atlas_cell.has_area():
+		GeoPixelAtlas.release(_atlas_cell)
+		_atlas_cell = Rect2i()
 
 
 func _draw() -> void:
+	if _atlas_item.is_valid():
+		RenderingServer.canvas_item_clear(_atlas_item)
+		GeoPixelAtlas.request_update()
+	if not pixel_material:
+		_release_atlas_cell()
+	var draw_material := pixel_material.get_rid() if pixel_material \
+			else material.get_rid() if material else RID()
+	if draw_material != _applied_material:
+		RenderingServer.canvas_item_set_material(get_canvas_item(), draw_material)
+		_applied_material = draw_material
 	if not shape:
 		return
 	var model := shape.get_compiled()
@@ -203,16 +262,50 @@ func _draw() -> void:
 		return
 	indices.resize(model.index_capacity_bytes)
 
-	# Assumes single-precision floats (the default engine build).
-	_normals_image.set_data(12, model.vertex_count, false, Image.FORMAT_L8,
+	# Copy in the normals and draw ranks. Assumes single-precision floats (the
+	# default engine build).
+	_normals_image.set_data(3, model.vertex_count, false, Image.FORMAT_RF,
 			normals.to_byte_array())
-	_attributes.blit_rect(_normals_image, Rect2i(0, 0, 12, model.vertex_count),
-			Vector2i(model.normal_offset, 0))
+	_attributes.blit_rect(_normals_image, Rect2i(0, 0, 3, model.vertex_count),
+			Vector2i(model.normal_offset / 4, 0))
+	for rank in order.size():
+		var i := order[rank]
+		_attributes.fill_rect(Rect2i(model.rank_offset / 4, model.vertex_offsets[i],
+				1, model.vertex_counts[i]), Color(rank, 0.0, 0.0))
+
 	RenderingServer.mesh_surface_update_vertex_region(_mesh, 0, 0, positions.to_byte_array())
 	RenderingServer.mesh_surface_update_attribute_region(_mesh, 0, 0, _attributes.get_data())
 	RenderingServer.mesh_surface_update_index_region(_mesh, 0, 0, indices)
 	RenderingServer.mesh_set_custom_aabb(_mesh, bounds)
-	RenderingServer.canvas_item_add_mesh(get_canvas_item(), _mesh)
+	if pixel_material:
+		_draw_pixelated(model)
+	else:
+		RenderingServer.canvas_item_add_mesh(get_canvas_item(), _mesh)
+
+
+func _draw_pixelated(model: GeoCompiledModel) -> void:
+	var pixel_size := camera.pixel_size if camera else GeoCamera.DEFAULT_PIXEL_SIZE
+	var cell_size := GeoPixelAtlas.get_cell_size(model.bounding_radius / pixel_size)
+	if _atlas_cell.size.x != cell_size:
+		_release_atlas_cell()
+		_atlas_cell = GeoPixelAtlas.allocate(cell_size)
+		if not _atlas_cell.has_area():
+			return
+		_atlas_item = GeoPixelAtlas.create_item()
+		RenderingServer.canvas_item_set_visible(_atlas_item, is_visible_in_tree())
+
+	# Draw the mesh into the cell, with the figure's origin at the cell's center
+	# and one texel per art pixel.
+	RenderingServer.canvas_item_set_transform(_atlas_item, Transform2D(
+			0.0, Vector2.ONE / pixel_size, 0.0, Vector2(_atlas_cell.get_center())))
+	RenderingServer.canvas_item_add_mesh(_atlas_item, _mesh)
+	GeoPixelAtlas.request_update()
+
+	# Then draw the cell here, scaled back up.
+	var size := cell_size * pixel_size
+	RenderingServer.canvas_item_add_texture_rect_region(get_canvas_item(),
+			Rect2(-size / 2.0, -size / 2.0, size, size), GeoPixelAtlas.get_texture(),
+			Rect2(_atlas_cell))
 
 
 func _get_configuration_warnings() -> PackedStringArray:
