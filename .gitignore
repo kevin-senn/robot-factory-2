@@ -1,0 +1,5 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+# Temp copies of the git plugin DLL that Godot makes on Windows while the editor has it loaded
+addons/godot-git-plugin/win64/~*
