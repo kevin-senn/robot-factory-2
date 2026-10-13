@@ -1,0 +1,77 @@
+[gd_resource type="Resource" script_class="GeoGroup" format=3]
+
+[ext_resource type="Script" path="res://geo_render/geo_shape.gd" id="1_heba2"]
+[ext_resource type="Script" path="res://geo_render/shapes/geo_cylinder.gd" id="2_i376q"]
+[ext_resource type="Script" path="res://geo_render/shapes/geo_panel.gd" id="3_jctrj"]
+[ext_resource type="Script" path="res://geo_render/shapes/geo_sphere.gd" id="4_fc4ap"]
+[ext_resource type="Script" path="res://geo_render/shapes/geo_box.gd" id="5_j56tm"]
+[ext_resource type="Script" path="res://geo_render/shapes/geo_group.gd" id="6_gx2r8"]
+
+[sub_resource type="Resource" id="Resource_okpem"]
+resource_name = "leg_left"
+script = ExtResource("2_i376q")
+radius = 5.0
+height = 18.0
+name = &"leg_left"
+color = Color(0.13, 0.62, 0.25, 1)
+position = Vector3(-9, -9, 0)
+
+[sub_resource type="Resource" id="Resource_vbaan"]
+resource_name = "leg_right"
+script = ExtResource("2_i376q")
+radius = 5.0
+height = 18.0
+name = &"leg_right"
+color = Color(0.13, 0.62, 0.25, 1)
+position = Vector3(9, -9, 0)
+
+[sub_resource type="Resource" id="Resource_3stuk"]
+resource_name = "screen"
+script = ExtResource("3_jctrj")
+size = Vector2(30, 12)
+name = &"screen"
+color = Color(0.5, 0.5, 0.52, 1)
+position = Vector3(0, -2, 15)
+
+[sub_resource type="Resource" id="Resource_ht5wf"]
+resource_name = "eye_left"
+script = ExtResource("3_jctrj")
+size = Vector2(3, 9)
+name = &"eye_left"
+color = Color(0.1, 0.1, 0.1, 1)
+position = Vector3(-5, -8, 15.4)
+rotation_degrees = Vector3(28, -18, 0)
+
+[sub_resource type="Resource" id="Resource_423ak"]
+resource_name = "eye_right"
+script = ExtResource("3_jctrj")
+size = Vector2(3, 9)
+name = &"eye_right"
+color = Color(0.1, 0.1, 0.1, 1)
+position = Vector3(5, -8, 15.4)
+rotation_degrees = Vector3(28, 18, 0)
+
+[sub_resource type="Resource" id="Resource_2rphx"]
+resource_name = "dome"
+script = ExtResource("4_fc4ap")
+radius = 18.0
+sweep_degrees = 90.0
+name = &"dome"
+color = Color(1, 0.9, 0.1, 1)
+position = Vector3(0, -23, 0)
+children = Array[ExtResource("1_heba2")]([SubResource("Resource_ht5wf"), SubResource("Resource_423ak")])
+
+[sub_resource type="Resource" id="Resource_0h6b6"]
+resource_name = "body"
+script = ExtResource("5_j56tm")
+size = Vector3(44, 46, 30)
+name = &"body"
+color = Color(1, 0.5, 0.15, 1)
+position = Vector3(0, -41, 0)
+children = Array[ExtResource("1_heba2")]([SubResource("Resource_3stuk"), SubResource("Resource_2rphx")])
+
+[resource]
+resource_name = "robot"
+script = ExtResource("6_gx2r8")
+name = &"robot"
+children = Array[ExtResource("1_heba2")]([SubResource("Resource_okpem"), SubResource("Resource_vbaan"), SubResource("Resource_0h6b6")])

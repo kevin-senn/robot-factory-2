@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="GeoCamera" format=3]
+
+[ext_resource type="Script" path="res://geo_render/geo_camera.gd" id="1_camera"]
+
+[resource]
+script = ExtResource("1_camera")
+elevation_degrees = 0.0
