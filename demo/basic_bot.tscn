@@ -1,0 +1,140 @@
+[gd_scene format=3 uid="uid://xqpmykto0iiq"]
+
+[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://geo_render/geo_figure.gd" id="1_2pycc"]
+[ext_resource type="Script" uid="uid://6lfjyrwg56do" path="res://demo/spin_figure.gd" id="1_3ogo4"]
+[ext_resource type="Script" uid="uid://c7nve4tv6e6ia" path="res://geo_render/geo_shape.gd" id="2_3ttm7"]
+[ext_resource type="Script" uid="uid://di5xu80x5ybwh" path="res://geo_render/shapes/geo_group.gd" id="3_205e1"]
+[ext_resource type="Script" uid="uid://d2mepwvfkgd1u" path="res://geo_render/shapes/geo_disc.gd" id="3_508f7"]
+[ext_resource type="Script" uid="uid://buhrjurpab3lq" path="res://geo_render/shapes/geo_triangle.gd" id="4_teygw"]
+[ext_resource type="Script" uid="uid://dghurmq0mmjfl" path="res://geo_render/shapes/geo_panel.gd" id="5_3ogo4"]
+[ext_resource type="Script" uid="uid://crc88dbnsmaxp" path="res://geo_render/shapes/geo_line.gd" id="6_dti2v"]
+[ext_resource type="Script" uid="uid://dtsled3me3lsf" path="res://geo_render/shapes/geo_cylinder.gd" id="7_5tlg2"]
+
+[sub_resource type="Resource" id="Resource_508f7"]
+resource_name = "shadow"
+script = ExtResource("3_508f7")
+radius = Vector2(18, 18)
+name = &"shadow"
+color = Color(0.6431373, 0.6392157, 0.6666667, 1)
+outlined = false
+rotation_degrees = Vector3(90, 0, 0)
+depth_bias = -1000.0
+
+[sub_resource type="Resource" id="Resource_teygw"]
+resource_name = "leg_left"
+script = ExtResource("4_teygw")
+point_a = Vector2(-3, -4.5)
+point_b = Vector2(6.4, -4.5)
+point_c = Vector2(-3, 4.9)
+depth = 6.0
+name = &"leg_left"
+color = Color(0.16862746, 0.15294118, 0.2509804, 1)
+position = Vector3(-9, -4.5, 0)
+
+[sub_resource type="Resource" id="Resource_3ogo4"]
+resource_name = "leg_right"
+script = ExtResource("4_teygw")
+point_a = Vector2(-3, -4.5)
+point_b = Vector2(6.4, -4.5)
+point_c = Vector2(-3, 4.9)
+depth = 6.0
+name = &"leg_right"
+color = Color(0.16862746, 0.15294118, 0.2509804, 1)
+position = Vector3(6, -4.5, 0)
+
+[sub_resource type="Resource" id="Resource_dti2v"]
+resource_name = "vent_left"
+script = ExtResource("5_3ogo4")
+size = Vector2(3, 9)
+name = &"vent_left"
+color = Color(0.16862746, 0.15294118, 0.2509804, 1)
+position = Vector3(-1.5, 0, 21.44636)
+rotation_degrees = Vector3(0, -4.0960436, 0)
+
+[sub_resource type="Resource" id="Resource_5tlg2"]
+resource_name = "vent_middle"
+script = ExtResource("5_3ogo4")
+size = Vector2(3, 12)
+name = &"vent_middle"
+color = Color(0.16862746, 0.15294118, 0.2509804, 1)
+position = Vector3(4.5, 1.5, 21.012192)
+rotation_degrees = Vector3(0, 12.373625, 0)
+
+[sub_resource type="Resource" id="Resource_8nsau"]
+resource_name = "vent_right"
+script = ExtResource("5_3ogo4")
+size = Vector2(3, 9)
+name = &"vent_right"
+color = Color(0.16862746, 0.15294118, 0.2509804, 1)
+position = Vector3(10.5, 0, 18.686533)
+rotation_degrees = Vector3(0, 30, 0)
+
+[sub_resource type="Resource" id="Resource_lp2c7"]
+resource_name = "eye_glint"
+script = ExtResource("5_3ogo4")
+size = Vector2(3.6, 3.6)
+name = &"eye_glint"
+color = Color(0.96862745, 0.4627451, 0.13333334, 1)
+outlined = false
+position = Vector3(1.5, 1.5, 0.3)
+depth_bias = 1.0
+
+[sub_resource type="Resource" id="Resource_67bo8"]
+resource_name = "eye"
+script = ExtResource("5_3ogo4")
+size = Vector2(6, 6)
+name = &"eye"
+color = Color(0.16862746, 0.15294118, 0.2509804, 1)
+position = Vector3(3, 3, 15.1969385)
+rotation_degrees = Vector3(0, 11.536959, 0)
+children = Array[ExtResource("2_3ttm7")]([SubResource("Resource_lp2c7")])
+
+[sub_resource type="Resource" id="Resource_df82o"]
+resource_name = "antenna"
+script = ExtResource("6_dti2v")
+end = Vector3(-3, -9.4, 0)
+thickness = 3.0
+name = &"antenna"
+color = Color(0.16862746, 0.15294118, 0.2509804, 1)
+position = Vector3(-4.5, -8, 0)
+
+[sub_resource type="Resource" id="Resource_7y4fm"]
+resource_name = "head"
+script = ExtResource("7_5tlg2")
+radius = 15.0
+height = 18.0
+top_rounding = 6.0
+segments = 20
+name = &"head"
+color = Color(0.99607843, 0.68235296, 0.20392157, 1)
+position = Vector3(0, -22.5, 0)
+children = Array[ExtResource("2_3ttm7")]([SubResource("Resource_67bo8"), SubResource("Resource_df82o")])
+
+[sub_resource type="Resource" id="Resource_o6i5q"]
+resource_name = "body"
+script = ExtResource("7_5tlg2")
+radius = 21.0
+height = 27.0
+top_rounding = 3.0
+bottom_rounding = 6.0
+segments = 24
+name = &"body"
+color = Color(0.99607843, 0.68235296, 0.20392157, 1)
+position = Vector3(0, -22.5, 0)
+children = Array[ExtResource("2_3ttm7")]([SubResource("Resource_dti2v"), SubResource("Resource_5tlg2"), SubResource("Resource_8nsau"), SubResource("Resource_7y4fm")])
+
+[sub_resource type="Resource" id="Resource_wo16g"]
+resource_name = "BasicBot"
+script = ExtResource("3_205e1")
+name = &"BasicBot"
+children = Array[ExtResource("2_3ttm7")]([SubResource("Resource_508f7"), SubResource("Resource_teygw"), SubResource("Resource_3ogo4"), SubResource("Resource_o6i5q")])
+
+[node name="BasicBotDemo" type="Node2D" unique_id=2107777566 node_paths=PackedStringArray("figure")]
+script = ExtResource("1_3ogo4")
+figure = NodePath("BasicBot")
+
+[node name="BasicBot" type="Node2D" parent="." unique_id=9845175]
+position = Vector2(576, 468)
+scale = Vector2(4, 4)
+script = ExtResource("1_2pycc")
+shape = SubResource("Resource_wo16g")

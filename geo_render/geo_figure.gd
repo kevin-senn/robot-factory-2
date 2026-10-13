@@ -28,7 +28,8 @@ extends Node2D
 ## - CUSTOM1.x: the index of the shape (depth-first, parents before children).
 ## - CUSTOM1.y: the index of the face within the shape.
 ## - CUSTOM1.z: the shape's position in this redraw's back-to-front draw order.
-## - CUSTOM1.w: the face's surface (see GeoGeometry.face_surfaces).
+## - CUSTOM1.w: the face's surface (see GeoGeometry.face_surfaces) * 2, plus 1
+##   if the shape isn't outlined (see GeoShape.outlined).
 ## See geo_shading_example.gdshader.
 
 ## Faces must point at least this much toward the camera to be drawn.

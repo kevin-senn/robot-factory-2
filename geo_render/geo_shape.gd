@@ -32,6 +32,13 @@ extends Resource
 		color = value
 		_changed()
 
+## Whether pixelated figures can draw outlines on this shape. Turn it off for
+## details that should keep their color, like a highlight or a shadow.
+@export var outlined := true:
+	set(value):
+		outlined = value
+		_changed()
+
 @export_group("Transform")
 ## Position relative to the parent shape.
 @export var position := Vector3.ZERO:

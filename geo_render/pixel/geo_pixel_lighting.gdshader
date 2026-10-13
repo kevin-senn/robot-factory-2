@@ -18,7 +18,8 @@ varying flat float key;
 
 void vertex() {
 	normal = CUSTOM0.xyz;
-	// CUSTOM1.z is the shape's draw rank; CUSTOM1.w is the face's surface.
+	// CUSTOM1.z is the shape's draw rank; CUSTOM1.w is the face's surface * 2,
+	// plus 1 if the shape isn't outlined.
 	key = geo_encode_key(CUSTOM1.z, CUSTOM1.w);
 }
 

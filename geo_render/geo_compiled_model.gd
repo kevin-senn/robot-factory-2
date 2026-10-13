@@ -12,9 +12,9 @@ extends RefCounted
 ## changes, so the mesh never has to be rebuilt.
 
 const _MAX_DEPTH := 64
-## Pixelated figures encode (draw rank, surface) per pixel in 8 bits, which
-## limits how many shapes they can tell apart.
-const MAX_DRAWABLE_SHAPES := 255 / (GeoGeometry.MAX_SURFACE + 1) - 1
+## Pixelated figures encode (draw rank, surface, outlined) per pixel in 8 bits,
+## which limits how many shapes they can tell apart.
+const MAX_DRAWABLE_SHAPES := 255 / (2 * (GeoGeometry.MAX_SURFACE + 1)) - 1
 const FORMAT := (Mesh.ARRAY_CUSTOM_RGB_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT) \
 		| (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT)
 
@@ -151,7 +151,7 @@ func _add_shape(shape: GeoShape, parent: int, parent_hidden: bool, depth: int,
 		_custom1.append(index)
 		_custom1.append(face)
 		_custom1.append(0.0)
-		_custom1.append(geometry.face_surfaces[face])
+		_custom1.append(geometry.face_surfaces[face] * 2 + (0 if shape.outlined else 1))
 	vertex_count += geometry.positions.size()
 
 	for child in shape.children:
