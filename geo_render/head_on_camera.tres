@@ -5,4 +5,5 @@
 [resource]
 script = ExtResource("1_mqy1g")
 elevation_degrees = 0.0
+pixel_size = 2.5
 metadata/_custom_type_script = "uid://bbajo2lwhj34l"

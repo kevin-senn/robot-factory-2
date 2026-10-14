@@ -94,7 +94,7 @@ size = Vector2(9, 9)
 name = &"eye"
 color = Color(0.13725491, 0.21568628, 0.23137255, 1)
 glued = true
-position = Vector3(0, 5, 21.376177)
+position = Vector3(0, 4, 21.376177)
 rotation_degrees = Vector3(2.7294025, 0, 0)
 children = Array[ExtResource("1_sukwn")]([SubResource("Resource_0u35c"), SubResource("Resource_mhyxk"), SubResource("Resource_pw1n3")])
 
@@ -104,20 +104,21 @@ script = ExtResource("3_fdcbt")
 end = Vector3(0, -12, -9)
 thickness = 3.0
 name = &"antenna"
-color = Color(0.13725491, 0.21568628, 0.23137255, 1)
-position = Vector3(0, -12, -10)
+color = Color(0.24237078, 0.35951334, 0.382968, 1)
+position = Vector3(0, -13, -10)
 
 [sub_resource type="Resource" id="Resource_5tfyo"]
 resource_name = "head"
 script = ExtResource("5_bbam3")
 radius = 21.0
-height = 30.0
+height = 32.0
 top_rounding = 21.0
 segments = 20
 rounding_segments = 5
 name = &"head"
 color = Color(0.9607843, 0.78039217, 0.40392157, 1)
-position = Vector3(0, -42.5, 0)
+position = Vector3(0, -41.5, 0)
+depth_bias = -4.0
 children = Array[ExtResource("1_sukwn")]([SubResource("Resource_l2qi8"), SubResource("Resource_n7kyh")])
 
 [sub_resource type="Resource" id="Resource_ga4x2"]

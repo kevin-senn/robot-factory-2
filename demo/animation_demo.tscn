@@ -78,6 +78,226 @@ tracks/5/keys = {
 "update": 0,
 "values": [0.0]
 }
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("BasicBot:shapes/body/rotation_degrees:z")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0.0]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("BasicBot:shapes/body/position:x")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0.0]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("BasicBot:shapes/head/position:y")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [-41.5]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("BasicBot:shapes/antenna/rotation_degrees:x")
+tracks/9/interp = 1
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0.0]
+}
+tracks/10/type = "value"
+tracks/10/imported = false
+tracks/10/enabled = true
+tracks/10/path = NodePath("BasicBot:shapes/foot_left/position:y")
+tracks/10/interp = 1
+tracks/10/loop_wrap = true
+tracks/10/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [16.0]
+}
+tracks/11/type = "value"
+tracks/11/imported = false
+tracks/11/enabled = true
+tracks/11/path = NodePath("BasicBot:shapes/foot_right/position:y")
+tracks/11/interp = 1
+tracks/11/loop_wrap = true
+tracks/11/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [16.0]
+}
+tracks/12/type = "value"
+tracks/12/imported = false
+tracks/12/enabled = true
+tracks/12/path = NodePath("BasicBot:shapes/leg_left/position:y")
+tracks/12/interp = 1
+tracks/12/loop_wrap = true
+tracks/12/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [-25.0]
+}
+tracks/13/type = "value"
+tracks/13/imported = false
+tracks/13/enabled = true
+tracks/13/path = NodePath("BasicBot:shapes/leg_right/position:y")
+tracks/13/interp = 1
+tracks/13/loop_wrap = true
+tracks/13/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [-25.0]
+}
+
+[sub_resource type="Animation" id="Animation_fa4w0"]
+length = 1.6
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("BasicBot:shapes/body/rotation_degrees:z")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.42, 0.54, 0.68, 0.8, 1.22, 1.3399999, 1.48, 1.6),
+"transitions": PackedFloat32Array(2, 0.5, 2, 1, 2, 0.5, 2, 1, 1),
+"update": 0,
+"values": [6.0, -6.0, -3.3000000000000003, -6.0, -6.0, 6.0, 3.3000000000000003, 6.0, 6.0]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("BasicBot:shapes/body/position:x")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.42, 0.54, 0.68, 0.8, 1.22, 1.3399999, 1.48, 1.6),
+"transitions": PackedFloat32Array(2, 0.5, 2, 1, 2, 0.5, 2, 1, 1),
+"update": 0,
+"values": [2.4000000000000004, -2.4000000000000004, -1.3200000000000005, -2.4000000000000004, -2.4000000000000004, 2.4000000000000004, 1.3200000000000005, 2.4000000000000004, 2.4000000000000004]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("BasicBot:shapes/head/position:y")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.3, 0.46, 0.58, 0.72, 0.8, 1.0999999, 1.26, 1.3799999, 1.52, 1.6),
+"transitions": PackedFloat32Array(-2, 2, 0.5, -2, 1, -2, 2, 0.5, -2, 1, 1),
+"update": 0,
+"values": [-39.5, -43.0, -38.9, -40.1, -39.5, -39.5, -43.0, -38.9, -40.1, -39.5, -39.5]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("BasicBot:shapes/antenna/rotation_degrees:x")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.36, 0.52, 0.64, 0.8, 1.1599998, 1.3199999, 1.44, 1.6),
+"transitions": PackedFloat32Array(-2, 2, 0.5, -2, -2, 2, 0.5, -2, 1),
+"update": 0,
+"values": [12.0, -10.0, 16.0, 8.0, 12.0, -10.0, 16.0, 8.0, 12.0]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("BasicBot:shapes/foot_left/scale")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0, 0.3, 0.42, 0.54, 0.68, 1.0999999, 1.22, 1.3599999, 1.5, 1.6),
+"transitions": PackedFloat32Array(1, 2, 0.5, 2, 1, 0.5, -2, -2, 1, 1),
+"update": 0,
+"values": [Vector3(1, 1, 1), Vector3(1, 1, 1), Vector3(1.096, 0.84, 1.096), Vector3(1, 1.05, 1), Vector3(1, 1, 1), Vector3(1, 1, 1), Vector3(0.94, 1.1, 0.94), Vector3(1.018, 0.97, 1.018), Vector3(1, 1, 1), Vector3(1, 1, 1)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("BasicBot:shapes/foot_left/position:y")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0, 0.3, 0.42, 0.54, 0.68, 0.8, 1.0999999, 1.22, 1.3599999, 1.5, 1.6),
+"transitions": PackedFloat32Array(1, 2, 0.5, 2, 1, 2, 0.5, -2, -2, 1, 1),
+"update": 0,
+"values": [16.0, 16.0, 14.56, 15.46, 14.92, 14.92, 16.0, 16.9, 15.73, 16.0, 16.0]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("BasicBot:shapes/leg_left/position:y")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0, 0.3, 0.42, 0.54, 0.68, 0.8, 1.0999999, 1.22, 1.3599999, 1.5, 1.6),
+"transitions": PackedFloat32Array(1, 2, 0.5, 2, 1, 2, 0.5, -2, -2, 1, 1),
+"update": 0,
+"values": [-25.0, -25.0, -22.119999999999997, -23.92, -22.84, -22.84, -25.0, -26.8, -24.46, -25.0, -25.0]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("BasicBot:shapes/foot_right/scale")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0, 0.3, 0.42, 0.56, 0.7, 0.8, 1.0999999, 1.22, 1.3399999, 1.48),
+"transitions": PackedFloat32Array(2, 0.5, -2, -2, 1, 1, 2, 0.5, 2, 1),
+"update": 0,
+"values": [Vector3(1, 1, 1), Vector3(1, 1, 1), Vector3(0.94, 1.1, 0.94), Vector3(1.018, 0.97, 1.018), Vector3(1, 1, 1), Vector3(1, 1, 1), Vector3(1, 1, 1), Vector3(1.096, 0.84, 1.096), Vector3(1, 1.05, 1), Vector3(1, 1, 1)]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("BasicBot:shapes/foot_right/position:y")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0, 0.3, 0.42, 0.56, 0.7, 0.8, 1.0999999, 1.22, 1.3399999, 1.48, 1.6),
+"transitions": PackedFloat32Array(2, 0.5, -2, -2, 1, 1, 2, 0.5, 2, 1, 1),
+"update": 0,
+"values": [14.92, 16.0, 16.9, 15.73, 16.0, 16.0, 16.0, 14.56, 15.46, 14.92, 14.92]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("BasicBot:shapes/leg_right/position:y")
+tracks/9/interp = 1
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0, 0.3, 0.42, 0.56, 0.7, 0.8, 1.0999999, 1.22, 1.3399999, 1.48, 1.6),
+"transitions": PackedFloat32Array(2, 0.5, -2, -2, 1, 1, 2, 0.5, 2, 1, 1),
+"update": 0,
+"values": [-22.84, -25.0, -26.8, -24.46, -25.0, -25.0, -25.0, -22.119999999999997, -23.92, -22.84, -22.84]
+}
 
 [sub_resource type="Animation" id="Animation_7ycn4"]
 length = 0.4
@@ -161,6 +381,7 @@ tracks/4/keys = {
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_kj234"]
 _data = {
 &"RESET": SubResource("Animation_ni6qi"),
+&"bouncy_idle": SubResource("Animation_fa4w0"),
 &"hit": SubResource("Animation_7ycn4"),
 &"idle": SubResource("Animation_0mnlw")
 }
@@ -179,4 +400,4 @@ model_rotation_degrees = Vector3(0, -45, 0)
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1244780172]
 libraries/ = SubResource("AnimationLibrary_kj234")
-autoplay = &"idle"
+autoplay = &"bouncy_idle"
