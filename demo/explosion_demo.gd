@@ -30,7 +30,7 @@ func _process(delta: float) -> void:
 	_ball.position.x += _speed_slider.value * delta
 	if not _has_hit and _ball.position.x >= _bot.position.x - hit_distance:
 		_has_hit = true
-		_bot.explode(Vector2.RIGHT, _get_intensity())
+		_bot.explode(_get_intensity())
 
 
 func _get_intensity() -> float:

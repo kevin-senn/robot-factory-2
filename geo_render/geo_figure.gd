@@ -78,11 +78,12 @@ const _FACING_EPSILON := 0.0001
 @export_range(0.0, 1000.0, 1.0, "or_greater") var explosion_max_speed := 150.0
 ## How far pieces spin over the explosion at intensity 1.
 @export_range(0.0, 3600.0, 1.0, "or_greater", "suffix:°") var explosion_max_spin_degrees := 720.0
-## How much pieces' directions vary from the direction of the impact. 0 sends
-## every piece the same way.
-@export_range(0.0, 4.0, 0.05, "or_greater") var explosion_spread := 1.0
-## How much pieces are also pushed away from the figure's origin.
-@export_range(0.0, 4.0, 0.05, "or_greater") var explosion_outward_push := 0.5
+## How far each piece's direction can stray from its evenly spaced slot, as a
+## fraction of the angle between slots. Below 1, neighboring pieces never cross.
+@export_range(0.0, 1.0, 0.05) var explosion_direction_jitter := 0.5
+## The most a piece's direction tilts toward or away from the camera (z). Small
+## values keep the spread visible on screen.
+@export_range(0.0, 1.0, 0.05) var explosion_max_depth_tilt := 0.3
 @export_group("")
 
 ## Emitted when an explosion's pieces have faded away.
@@ -145,46 +146,73 @@ func _process(delta: float) -> void:
 
 
 ## Breaks the figure into pieces (see GeoShape.glued) that fly apart and fade
-## away. direction is the direction of the impact, in global coordinates;
-## intensity, from 0 to 1, scales how fast and how far the pieces fly and spin.
-## Pieces fly in straight lines, relative to the figure.
-func explode(direction: Vector2, intensity: float) -> void:
+## away. intensity, from 0 to 1, scales how fast and how far the pieces fly and
+## spin. Pieces fly in straight lines, relative to the figure. (Moving the
+## figure itself, e.g. for momentum or gravity, is up to its parent.)
+##
+## Pieces' directions are spread evenly around the screen (x and y), each in
+## roughly the direction it already is from the others, then jittered a little.
+## So pieces always fly away from each other, never together.
+func explode(intensity: float) -> void:
 	if not shape:
 		return
 	var model := shape.get_compiled()
 	if model != _mesh_model:
 		_set_model(model)
 	intensity = clampf(intensity, 0.0, 1.0)
-	# The figure's local 2D space is view space's x and y.
-	var impact_2d := global_transform.affine_inverse().basis_xform(direction).normalized()
-	var impact := Vector3(impact_2d.x, impact_2d.y, 0.0)
 	var transforms := _compute_transforms(model)
 
+	# Find the pieces. The root's piece stays in place; the rest fly.
 	var count := model.shapes.size()
 	_piece_roots.resize(count)
 	_piece_velocities.resize(count)
 	_piece_spin_axes.resize(count)
 	_piece_spin_angles.resize(count)
-	_explosion_top_speed = 0.0
+	_piece_velocities.fill(Vector3.ZERO)
+	_piece_spin_angles.fill(0.0)
+	var flying: Array[int] = []
 	for i in count:
 		var parent := model.parents[i]
 		if parent >= 0 and model.shapes[i].glued:
 			_piece_roots[i] = _piece_roots[parent]
-			continue
-		_piece_roots[i] = i
-		if parent < 0:
-			# The root's piece stays in place.
-			_piece_velocities[i] = Vector3.ZERO
-			_piece_spin_angles[i] = 0.0
-			continue
-		var outward := transforms[i].origin.normalized()
-		var heading := (impact + outward * explosion_outward_push
-				+ _random_direction() * explosion_spread).normalized()
-		var speed := explosion_max_speed * intensity * _rng.randf_range(0.5, 1.0)
-		_piece_velocities[i] = heading * speed
+		else:
+			_piece_roots[i] = i
+			if parent >= 0:
+				flying.append(i)
+
+	# Order the flying pieces by their angle (on screen) around their middle.
+	var centers: Dictionary[int, Vector2] = {}
+	var middle := Vector2.ZERO
+	for i in flying:
+		var center := transforms[i] * model.geometries[i].sort_point
+		centers[i] = Vector2(center.x, center.y)
+		middle += centers[i]
+	middle /= maxf(flying.size(), 1)
+	var angles: Dictionary[int, float] = {}
+	for i in flying:
+		angles[i] = (centers[i] - middle).angle()
+	flying.sort_custom(func(a: int, b: int) -> bool: return angles[a] < angles[b])
+
+	# Give them evenly spaced directions, in that order, turned to best match
+	# the directions they already are from the middle.
+	var spacing := TAU / maxf(flying.size(), 1)
+	var alignment := Vector2.ZERO
+	for slot in flying.size():
+		alignment += Vector2.from_angle(angles[flying[slot]] - slot * spacing)
+	var start := alignment.angle() if not alignment.is_zero_approx() else _rng.randf() * TAU
+
+	_explosion_top_speed = 0.0
+	for slot in flying.size():
+		var i := flying[slot]
+		var angle := start + (slot + _rng.randf_range(-0.5, 0.5) * explosion_direction_jitter) \
+				* spacing
+		var direction := Vector3(cos(angle), sin(angle), _rng.randf_range(-1.0, 1.0)
+				* explosion_max_depth_tilt).normalized()
+		var speed := explosion_max_speed * intensity * _rng.randf_range(0.7, 1.0)
+		_piece_velocities[i] = direction * speed
 		_piece_spin_axes[i] = _random_direction()
 		_piece_spin_angles[i] = deg_to_rad(explosion_max_spin_degrees) * intensity \
-				* _rng.randf_range(0.25, 1.0)
+				* _rng.randf_range(0.5, 1.0)
 		_explosion_top_speed = maxf(_explosion_top_speed, speed)
 
 	_explosion_time = 0.0
