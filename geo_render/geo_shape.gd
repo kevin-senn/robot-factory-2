@@ -39,6 +39,14 @@ extends Resource
 		outlined = value
 		_changed()
 
+## Whether this shape stays attached to its parent when the figure explodes
+## (see GeoFigure.explode()). Shapes that aren't glued break off as pieces,
+## taking their glued descendants with them. The root's piece stays in place.
+@export var glued := false:
+	set(value):
+		glued = value
+		_changed()
+
 @export_group("Transform")
 ## Position relative to the parent shape.
 @export var position := Vector3.ZERO:

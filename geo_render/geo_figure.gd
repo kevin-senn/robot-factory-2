@@ -71,6 +71,23 @@ const _FACING_EPSILON := 0.0001
 		pixel_material = value
 		queue_redraw()
 
+@export_group("Explosion")
+## How long the pieces fly (and fade) for, in seconds.
+@export_range(0.05, 10.0, 0.05, "or_greater", "suffix:s") var explosion_duration := 1.0
+## How fast pieces fly at intensity 1, in local units per second.
+@export_range(0.0, 1000.0, 1.0, "or_greater") var explosion_max_speed := 150.0
+## How far pieces spin over the explosion at intensity 1.
+@export_range(0.0, 3600.0, 1.0, "or_greater", "suffix:°") var explosion_max_spin_degrees := 720.0
+## How much pieces' directions vary from the direction of the impact. 0 sends
+## every piece the same way.
+@export_range(0.0, 4.0, 0.05, "or_greater") var explosion_spread := 1.0
+## How much pieces are also pushed away from the figure's origin.
+@export_range(0.0, 4.0, 0.05, "or_greater") var explosion_outward_push := 0.5
+@export_group("")
+
+## Emitted when an explosion's pieces have faded away.
+signal explosion_finished
+
 # This figure's copy of the model's mesh, updated in place each redraw.
 var _mesh := RenderingServer.mesh_create()
 var _mesh_model: GeoCompiledModel
@@ -94,11 +111,100 @@ var _rotation_overrides: Dictionary[StringName, Vector3] = {}
 # Each shape's transform relative to its parent, with overrides applied.
 var _pose: Array[Transform3D] = []
 
+# The current explosion: seconds since it started (-1 if not exploding), and,
+# per shape, the index of the shape at the root of its piece. Pieces' velocities
+# and spins (in view space) are stored at their roots' indices.
+var _explosion_time := -1.0
+var _piece_roots := PackedInt32Array()
+var _piece_velocities := PackedVector3Array()
+var _piece_spin_axes := PackedVector3Array()
+var _piece_spin_angles := PackedFloat32Array()
+var _explosion_top_speed := 0.0
+var _rng := RandomNumberGenerator.new()
+
 
 func _init() -> void:
 	# The setter doesn't run for the default value.
 	if camera:
 		camera.changed.connect(queue_redraw)
+
+
+func _ready() -> void:
+	set_process(is_exploding())
+
+
+func _process(delta: float) -> void:
+	if not is_exploding():
+		set_process(false)
+		return
+	_explosion_time = minf(_explosion_time + delta, explosion_duration)
+	queue_redraw()
+	if _explosion_time >= explosion_duration:
+		set_process(false)
+		explosion_finished.emit()
+
+
+## Breaks the figure into pieces (see GeoShape.glued) that fly apart and fade
+## away. direction is the direction of the impact, in global coordinates;
+## intensity, from 0 to 1, scales how fast and how far the pieces fly and spin.
+## Pieces fly in straight lines, relative to the figure.
+func explode(direction: Vector2, intensity: float) -> void:
+	if not shape:
+		return
+	var model := shape.get_compiled()
+	if model != _mesh_model:
+		_set_model(model)
+	intensity = clampf(intensity, 0.0, 1.0)
+	# The figure's local 2D space is view space's x and y.
+	var impact_2d := global_transform.affine_inverse().basis_xform(direction).normalized()
+	var impact := Vector3(impact_2d.x, impact_2d.y, 0.0)
+	var transforms := _compute_transforms(model)
+
+	var count := model.shapes.size()
+	_piece_roots.resize(count)
+	_piece_velocities.resize(count)
+	_piece_spin_axes.resize(count)
+	_piece_spin_angles.resize(count)
+	_explosion_top_speed = 0.0
+	for i in count:
+		var parent := model.parents[i]
+		if parent >= 0 and model.shapes[i].glued:
+			_piece_roots[i] = _piece_roots[parent]
+			continue
+		_piece_roots[i] = i
+		if parent < 0:
+			# The root's piece stays in place.
+			_piece_velocities[i] = Vector3.ZERO
+			_piece_spin_angles[i] = 0.0
+			continue
+		var outward := transforms[i].origin.normalized()
+		var heading := (impact + outward * explosion_outward_push
+				+ _random_direction() * explosion_spread).normalized()
+		var speed := explosion_max_speed * intensity * _rng.randf_range(0.5, 1.0)
+		_piece_velocities[i] = heading * speed
+		_piece_spin_axes[i] = _random_direction()
+		_piece_spin_angles[i] = deg_to_rad(explosion_max_spin_degrees) * intensity \
+				* _rng.randf_range(0.25, 1.0)
+		_explosion_top_speed = maxf(_explosion_top_speed, speed)
+
+	_explosion_time = 0.0
+	set_process(true)
+	queue_redraw()
+
+
+## Puts an exploded figure back together.
+func reassemble() -> void:
+	_explosion_time = -1.0
+	set_process(false)
+	queue_redraw()
+
+
+func is_exploding() -> bool:
+	return _explosion_time >= 0.0
+
+
+func _random_direction() -> Vector3:
+	return Vector3(_rng.randfn(), _rng.randfn(), _rng.randfn()).normalized()
 
 
 func _notification(what: int) -> void:
@@ -163,6 +269,8 @@ func _make_pose_transform(pose_shape: GeoShape) -> Transform3D:
 func _set_model(model: GeoCompiledModel) -> void:
 	_mesh_model = model
 	_rebuild_pose()
+	if is_exploding():
+		reassemble() # The pieces were for the old model.
 	RenderingServer.mesh_clear(_mesh)
 	if model.surface.is_empty():
 		_attributes = null
@@ -208,26 +316,24 @@ func _draw() -> void:
 		_set_model(model)
 	if model.surface.is_empty():
 		return
+	var fade := 1.0
+	if is_exploding():
+		var progress := _explosion_time / explosion_duration
+		fade = 1.0 - progress * progress
+		if fade <= 0.0:
+			return
 
-	var elevation := camera.elevation_degrees if camera \
-			else GeoCamera.DEFAULT_ELEVATION_DEGREES
-	var rotation_radians := Vector3(deg_to_rad(model_rotation_degrees.x),
-			deg_to_rad(model_rotation_degrees.y), deg_to_rad(model_rotation_degrees.z))
-	var view := Transform3D(
-			GeoCamera.make_view_basis(elevation) * Basis.from_euler(rotation_radians),
-			Vector3.ZERO)
+	var shape_count := model.shapes.size()
+	var transforms := _compute_transforms(model)
+	if is_exploding():
+		_apply_explosion(transforms)
 
 	# Transform every shape's vertices and normals into view space. (The
 	# transform of packed arrays happens in native code.)
-	var shape_count := model.shapes.size()
-	var transforms: Array[Transform3D] = []
-	transforms.resize(shape_count)
 	var positions := PackedVector3Array()
 	var normals := PackedVector3Array()
 	for i in shape_count:
-		var parent := model.parents[i]
-		var xform := (view if parent < 0 else transforms[parent]) * _pose[i]
-		transforms[i] = xform
+		var xform := transforms[i]
 		var geometry := model.geometries[i]
 		if not geometry.positions.is_empty():
 			positions.append_array(xform * geometry.positions)
@@ -278,15 +384,53 @@ func _draw() -> void:
 	RenderingServer.mesh_surface_update_attribute_region(_mesh, 0, 0, _attributes.get_data())
 	RenderingServer.mesh_surface_update_index_region(_mesh, 0, 0, indices)
 	RenderingServer.mesh_set_custom_aabb(_mesh, bounds)
+	var modulate_color := Color(1.0, 1.0, 1.0, fade)
 	if pixel_material:
-		_draw_pixelated(model)
+		_draw_pixelated(model, modulate_color)
 	else:
-		RenderingServer.canvas_item_add_mesh(get_canvas_item(), _mesh)
+		RenderingServer.canvas_item_add_mesh(get_canvas_item(), _mesh, Transform2D(),
+				modulate_color)
 
 
-func _draw_pixelated(model: GeoCompiledModel) -> void:
+# Returns each shape's transform into view space.
+func _compute_transforms(model: GeoCompiledModel) -> Array[Transform3D]:
+	var elevation := camera.elevation_degrees if camera \
+			else GeoCamera.DEFAULT_ELEVATION_DEGREES
+	var rotation_radians := Vector3(deg_to_rad(model_rotation_degrees.x),
+			deg_to_rad(model_rotation_degrees.y), deg_to_rad(model_rotation_degrees.z))
+	var view := Transform3D(
+			GeoCamera.make_view_basis(elevation) * Basis.from_euler(rotation_radians),
+			Vector3.ZERO)
+	var transforms: Array[Transform3D] = []
+	transforms.resize(model.shapes.size())
+	for i in model.shapes.size():
+		var parent := model.parents[i]
+		transforms[i] = (view if parent < 0 else transforms[parent]) * _pose[i]
+	return transforms
+
+
+# Moves and spins each piece (around its root's origin), in view space.
+func _apply_explosion(transforms: Array[Transform3D]) -> void:
+	var progress := _explosion_time / explosion_duration
+	var piece_moves: Dictionary[int, Transform3D] = {}
+	for i in transforms.size():
+		var piece := _piece_roots[i]
+		if piece == _piece_roots[0]:
+			continue # The root's piece stays in place.
+		if not piece_moves.has(piece):
+			var pivot := transforms[piece].origin
+			var spin := Basis(_piece_spin_axes[piece], _piece_spin_angles[piece] * progress)
+			var offset := _piece_velocities[piece] * _explosion_time
+			piece_moves[piece] = Transform3D(spin, pivot + offset - spin * pivot)
+		transforms[i] = piece_moves[piece] * transforms[i]
+
+
+func _draw_pixelated(model: GeoCompiledModel, modulate_color: Color) -> void:
 	var pixel_size := camera.pixel_size if camera else GeoCamera.DEFAULT_PIXEL_SIZE
-	var cell_size := GeoPixelAtlas.get_cell_size(model.bounding_radius / pixel_size)
+	var radius := model.bounding_radius
+	if is_exploding():
+		radius += _explosion_top_speed * _explosion_time
+	var cell_size := GeoPixelAtlas.get_cell_size(radius / pixel_size)
 	if _atlas_cell.size.x != cell_size:
 		_release_atlas_cell()
 		_atlas_cell = GeoPixelAtlas.allocate(cell_size)
@@ -306,7 +450,7 @@ func _draw_pixelated(model: GeoCompiledModel) -> void:
 	var size := cell_size * pixel_size
 	RenderingServer.canvas_item_add_texture_rect_region(get_canvas_item(),
 			Rect2(-size / 2.0, -size / 2.0, size, size), GeoPixelAtlas.get_texture(),
-			Rect2(_atlas_cell))
+			Rect2(_atlas_cell), modulate_color)
 
 
 func _get_configuration_warnings() -> PackedStringArray:

@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://2dvwpa1hiry0"]
+
+[ext_resource type="Script" uid="uid://cx4oanbas3d50" path="res://demo/explosion_demo.gd" id="1_demo"]
+[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://geo_render/geo_figure.gd" id="2_figure"]
+[ext_resource type="Resource" uid="uid://djq7c8f4xm23a" path="res://demo/basic_bot.tres" id="3_bot"]
+[ext_resource type="Script" uid="uid://c7nve4tv6e6ia" path="res://geo_render/geo_shape.gd" id="4_7j6ks"]
+[ext_resource type="Script" uid="uid://c7mjvjcnyj37v" path="res://geo_render/shapes/geo_sphere.gd" id="4_sphere"]
+
+[sub_resource type="Resource" id="Resource_ball"]
+resource_name = "cannonball"
+script = ExtResource("4_sphere")
+radius = 12.0
+name = &"cannonball"
+color = Color(0.45, 0.45, 0.48, 1)
+
+[node name="ExplosionDemo" type="Node2D" unique_id=1551573419]
+script = ExtResource("1_demo")
+
+[node name="BasicBot" type="Node2D" parent="." unique_id=1235001458]
+position = Vector2(480, 468)
+scale = Vector2(4, 4)
+script = ExtResource("2_figure")
+shape = ExtResource("3_bot")
+
+[node name="Cannonball" type="Node2D" parent="." unique_id=706621834]
+position = Vector2(60, 378)
+scale = Vector2(4, 4)
+script = ExtResource("2_figure")
+shape = SubResource("Resource_ball")
+
+[node name="SpeedSlider" type="HSlider" parent="." unique_id=713750434]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 420.0
+offset_bottom = 44.0
+min_value = 100.0
+max_value = 1500.0
+step = 10.0
+value = 600.0
+
+[node name="SpeedLabel" type="Label" parent="." unique_id=702646161]
+offset_left = 440.0
+offset_top = 20.0
+offset_right = 840.0
+offset_bottom = 43.0
+text = "Ball speed"
