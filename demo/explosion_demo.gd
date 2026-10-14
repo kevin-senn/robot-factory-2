@@ -6,7 +6,7 @@ extends Node2D
 ## Ball speed, in pixels per second, that makes an intensity 1 explosion.
 @export var full_intensity_speed := 1500.0
 ## How close the ball's center gets to the bot's body before it hits.
-@export var hit_distance := 132.0
+@export var hit_distance := 168.0
 ## Seconds to wait after the pieces fade before firing again.
 @export var pause_after_explosion := 0.5
 

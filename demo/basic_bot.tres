@@ -1,122 +1,141 @@
 [gd_resource type="Resource" script_class="GeoGroup" format=3 uid="uid://djq7c8f4xm23a"]
 
-[ext_resource type="Script" uid="uid://c7nve4tv6e6ia" path="res://geo_render/geo_shape.gd" id="1_62wnb"]
-[ext_resource type="Script" uid="uid://buhrjurpab3lq" path="res://geo_render/shapes/geo_triangle.gd" id="3_imki3"]
-[ext_resource type="Script" uid="uid://dghurmq0mmjfl" path="res://geo_render/shapes/geo_panel.gd" id="4_bbam3"]
-[ext_resource type="Script" uid="uid://crc88dbnsmaxp" path="res://geo_render/shapes/geo_line.gd" id="5_o34go"]
-[ext_resource type="Script" uid="uid://dtsled3me3lsf" path="res://geo_render/shapes/geo_cylinder.gd" id="6_dbj5h"]
-[ext_resource type="Script" uid="uid://di5xu80x5ybwh" path="res://geo_render/shapes/geo_group.gd" id="7_ljlpa"]
+[ext_resource type="Script" uid="uid://c7nve4tv6e6ia" path="res://geo_render/geo_shape.gd" id="1_sukwn"]
+[ext_resource type="Script" uid="uid://etry2mceim7b" path="res://geo_render/shapes/geo_box.gd" id="2_62wnb"]
+[ext_resource type="Script" uid="uid://crc88dbnsmaxp" path="res://geo_render/shapes/geo_line.gd" id="3_fdcbt"]
+[ext_resource type="Script" uid="uid://dghurmq0mmjfl" path="res://geo_render/shapes/geo_panel.gd" id="4_imki3"]
+[ext_resource type="Script" uid="uid://dtsled3me3lsf" path="res://geo_render/shapes/geo_cylinder.gd" id="5_bbam3"]
+[ext_resource type="Script" uid="uid://di5xu80x5ybwh" path="res://geo_render/shapes/geo_group.gd" id="6_o34go"]
 
-[sub_resource type="Resource" id="Resource_teygw"]
+[sub_resource type="Resource" id="Resource_dbj5h"]
+resource_name = "foot_left"
+script = ExtResource("2_62wnb")
+size = Vector3(18, 18, 26)
+name = &"foot_left"
+color = Color(0.03529412, 0.39607844, 0.39215687, 1)
+glued = true
+position = Vector3(-12, 16, 3)
+
+[sub_resource type="Resource" id="Resource_ljlpa"]
 resource_name = "leg_left"
-script = ExtResource("3_imki3")
-point_a = Vector2(-3, -4.5)
-point_b = Vector2(6.4, -4.5)
-point_c = Vector2(-3, 4.9)
-depth = 6.0
+script = ExtResource("3_fdcbt")
+end = Vector3(-13, 7, 3)
+bend = Vector3(-8, -8, 0)
+thickness = 6.0
 name = &"leg_left"
-color = Color(0.16862746, 0.15294118, 0.2509804, 1)
-position = Vector3(-9, -4.5, 0)
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+position = Vector3(-17, -25, 0)
+children = Array[ExtResource("1_sukwn")]([SubResource("Resource_dbj5h")])
 
-[sub_resource type="Resource" id="Resource_3ogo4"]
+[sub_resource type="Resource" id="Resource_28u1p"]
+resource_name = "foot_right"
+script = ExtResource("2_62wnb")
+size = Vector3(18, 18, 26)
+name = &"foot_right"
+color = Color(0.03529412, 0.39607844, 0.39215687, 1)
+glued = true
+position = Vector3(12, 16, 3)
+
+[sub_resource type="Resource" id="Resource_1vpco"]
 resource_name = "leg_right"
-script = ExtResource("3_imki3")
-point_a = Vector2(-3, -4.5)
-point_b = Vector2(6.4, -4.5)
-point_c = Vector2(-3, 4.9)
-depth = 6.0
+script = ExtResource("3_fdcbt")
+end = Vector3(13, 7, 3)
+bend = Vector3(8, -8, 0)
+thickness = 6.0
 name = &"leg_right"
-color = Color(0.16862746, 0.15294118, 0.2509804, 1)
-position = Vector3(6, -4.5, 0)
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+position = Vector3(17, -25, 0)
+children = Array[ExtResource("1_sukwn")]([SubResource("Resource_28u1p")])
 
-[sub_resource type="Resource" id="Resource_dti2v"]
-resource_name = "vent_left"
-script = ExtResource("4_bbam3")
-size = Vector2(3, 9)
-name = &"vent_left"
-color = Color(0.16862746, 0.15294118, 0.2509804, 1)
+[sub_resource type="Resource" id="Resource_d123g"]
+resource_name = "panel"
+script = ExtResource("4_imki3")
+size = Vector2(26, 17)
+name = &"panel"
+color = Color(0.8, 0.6745098, 0.3647059, 1)
 glued = true
-position = Vector3(-1.5, 0, 21.44636)
-rotation_degrees = Vector3(0, -4.0960436, 0)
+position = Vector3(0, -6.5, 30.5)
 
-[sub_resource type="Resource" id="Resource_5tlg2"]
-resource_name = "vent_middle"
-script = ExtResource("4_bbam3")
-size = Vector2(3, 12)
-name = &"vent_middle"
-color = Color(0.16862746, 0.15294118, 0.2509804, 1)
-glued = true
-position = Vector3(4.5, 1.5, 21.012192)
-rotation_degrees = Vector3(0, 12.373625, 0)
-
-[sub_resource type="Resource" id="Resource_8nsau"]
-resource_name = "vent_right"
-script = ExtResource("4_bbam3")
-size = Vector2(3, 9)
-name = &"vent_right"
-color = Color(0.16862746, 0.15294118, 0.2509804, 1)
-glued = true
-position = Vector3(10.5, 0, 18.686533)
-rotation_degrees = Vector3(0, 30, 0)
-
-[sub_resource type="Resource" id="Resource_lp2c7"]
-resource_name = "eye_glint"
-script = ExtResource("4_bbam3")
-size = Vector2(3.6, 3.6)
-name = &"eye_glint"
-color = Color(0.96862745, 0.4627451, 0.13333334, 1)
+[sub_resource type="Resource" id="Resource_0u35c"]
+resource_name = "eye_light"
+script = ExtResource("4_imki3")
+size = Vector2(3.4, 3.4)
+name = &"eye_light"
+color = Color(1, 0.4509804, 0.3254902, 1)
 outlined = false
 glued = true
-position = Vector3(1.5, 1.5, 0.3)
+position = Vector3(0, 0, 0.3)
 depth_bias = 1.0
 
-[sub_resource type="Resource" id="Resource_67bo8"]
-resource_name = "eye"
-script = ExtResource("4_bbam3")
-size = Vector2(6, 6)
-name = &"eye"
-color = Color(0.16862746, 0.15294118, 0.2509804, 1)
+[sub_resource type="Resource" id="Resource_mhyxk"]
+resource_name = "eyebrow_left"
+script = ExtResource("3_fdcbt")
+end = Vector3(-7, -6.5, -1.5)
+thickness = 3.0
+name = &"eyebrow_left"
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
 glued = true
-position = Vector3(3, 3, 15.1969385)
-rotation_degrees = Vector3(0, 11.536959, 0)
-children = Array[ExtResource("1_62wnb")]([SubResource("Resource_lp2c7")])
+position = Vector3(0, -5.5, -0.5)
 
-[sub_resource type="Resource" id="Resource_df82o"]
+[sub_resource type="Resource" id="Resource_pw1n3"]
+resource_name = "eyebrow_right"
+script = ExtResource("3_fdcbt")
+end = Vector3(7, -6.5, -1.5)
+thickness = 3.0
+name = &"eyebrow_right"
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+glued = true
+position = Vector3(0, -5.5, -0.5)
+
+[sub_resource type="Resource" id="Resource_l2qi8"]
+resource_name = "eye"
+script = ExtResource("4_imki3")
+size = Vector2(9, 9)
+name = &"eye"
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+glued = true
+position = Vector3(0, 5, 21.376177)
+rotation_degrees = Vector3(2.7294025, 0, 0)
+children = Array[ExtResource("1_sukwn")]([SubResource("Resource_0u35c"), SubResource("Resource_mhyxk"), SubResource("Resource_pw1n3")])
+
+[sub_resource type="Resource" id="Resource_n7kyh"]
 resource_name = "antenna"
-script = ExtResource("5_o34go")
-end = Vector3(-3, -9.4, 0)
+script = ExtResource("3_fdcbt")
+end = Vector3(0, -12, -9)
 thickness = 3.0
 name = &"antenna"
-color = Color(0.16862746, 0.15294118, 0.2509804, 1)
-position = Vector3(-4.5, -8, 0)
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+position = Vector3(0, -12, -10)
 
-[sub_resource type="Resource" id="Resource_7y4fm"]
+[sub_resource type="Resource" id="Resource_5tfyo"]
 resource_name = "head"
-script = ExtResource("6_dbj5h")
-radius = 15.0
-height = 18.0
-top_rounding = 6.0
-segments = 20
-name = &"head"
-color = Color(0.99607843, 0.68235296, 0.20392157, 1)
-position = Vector3(0, -22.5, 0)
-children = Array[ExtResource("1_62wnb")]([SubResource("Resource_67bo8"), SubResource("Resource_df82o")])
-
-[sub_resource type="Resource" id="Resource_o6i5q"]
-resource_name = "body"
-script = ExtResource("6_dbj5h")
+script = ExtResource("5_bbam3")
 radius = 21.0
-height = 27.0
-top_rounding = 3.0
-bottom_rounding = 6.0
+height = 30.0
+top_rounding = 21.0
+segments = 20
+rounding_segments = 5
+name = &"head"
+color = Color(0.9607843, 0.78039217, 0.40392157, 1)
+position = Vector3(0, -42.5, 0)
+children = Array[ExtResource("1_sukwn")]([SubResource("Resource_l2qi8"), SubResource("Resource_n7kyh")])
+
+[sub_resource type="Resource" id="Resource_ga4x2"]
+resource_name = "body"
+script = ExtResource("5_bbam3")
+radius = 30.0
+height = 55.0
+top_rounding = 4.0
+bottom_rounding = 21.0
 segments = 24
+rounding_segments = 5
 name = &"body"
-color = Color(0.99607843, 0.68235296, 0.20392157, 1)
-position = Vector3(0, -22.5, 0)
-children = Array[ExtResource("1_62wnb")]([SubResource("Resource_dti2v"), SubResource("Resource_5tlg2"), SubResource("Resource_8nsau"), SubResource("Resource_7y4fm")])
+color = Color(0.9607843, 0.78039217, 0.40392157, 1)
+position = Vector3(0, -39, 0)
+children = Array[ExtResource("1_sukwn")]([SubResource("Resource_d123g"), SubResource("Resource_5tfyo")])
 
 [resource]
 resource_name = "BasicBot"
-script = ExtResource("7_ljlpa")
+script = ExtResource("6_o34go")
 name = &"BasicBot"
-children = Array[ExtResource("1_62wnb")]([SubResource("Resource_teygw"), SubResource("Resource_3ogo4"), SubResource("Resource_o6i5q")])
+children = Array[ExtResource("1_sukwn")]([SubResource("Resource_ljlpa"), SubResource("Resource_1vpco"), SubResource("Resource_ga4x2")])

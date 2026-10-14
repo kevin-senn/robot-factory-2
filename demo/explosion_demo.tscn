@@ -23,7 +23,7 @@ script = ExtResource("2_figure")
 shape = ExtResource("3_bot")
 
 [node name="Cannonball" type="Node2D" parent="." unique_id=706621834]
-position = Vector2(60, 378)
+position = Vector2(60, 312)
 scale = Vector2(4, 4)
 script = ExtResource("2_figure")
 shape = SubResource("Resource_ball")
