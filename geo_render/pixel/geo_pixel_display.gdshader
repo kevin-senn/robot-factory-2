@@ -9,15 +9,20 @@
 // themselves against shapes behind them. Shapes with GeoShape.outlined off
 // are never outlined.
 //
-// The parameters are regular uniforms rather than instance uniforms: every
-// figure shares one material, so they're set once, and figures sharing a
-// material and the atlas texture can be batched together.
+// The outline parameters are regular uniforms rather than instance uniforms:
+// every figure shares one material, so they're set once, and figures sharing
+// a material and the atlas texture can be batched together.
 shader_type canvas_item;
 
 #include "res://geo_render/pixel/geo_pixel_common.gdshaderinc"
 
 uniform float outline_darkening : hint_range(0.0, 1.0) = 0.5;
 uniform bool outline_creases = true;
+
+// Per figure (see GeoFigure.flash_color and flash_amount), so these are
+// instance uniforms: each figure can flash on its own without its own material.
+instance uniform vec4 flash_color : source_color = vec4(1.0);
+instance uniform float flash_amount = 0.0;
 
 varying vec4 modulate;
 
@@ -59,5 +64,6 @@ void fragment() {
 			rgb *= 1.0 - outline_darkening;
 		}
 	}
+	rgb = mix(rgb, flash_color.rgb, flash_amount);
 	COLOR = vec4(rgb, 1.0) * modulate;
 }

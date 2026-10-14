@@ -3,7 +3,8 @@ class_name GeoBox
 extends GeoShape
 ## A box centered on its position.
 
-@export var size := Vector3(32.0, 32.0, 32.0):
+@export_custom(PROPERTY_HINT_RANGE, "0,128,0.5,or_greater")
+var size := Vector3(32.0, 32.0, 32.0):
 	set(value):
 		size = value
 		_geometry_changed()

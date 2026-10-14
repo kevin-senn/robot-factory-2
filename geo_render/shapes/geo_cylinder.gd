@@ -4,25 +4,25 @@ extends GeoShape
 ## A vertical cylinder centered on its position. Its top and bottom edges can be
 ## rounded off.
 
-@export var radius := 8.0:
+@export_range(0.0, 128.0, 0.5, "or_greater") var radius := 8.0:
 	set(value):
 		radius = value
 		_geometry_changed()
 
-@export var height := 16.0:
+@export_range(0.0, 128.0, 0.5, "or_greater") var height := 16.0:
 	set(value):
 		height = value
 		_geometry_changed()
 
 ## Radius of the rounding where the side meets the top. 0 is a sharp edge; the
 ## radius (with enough height) makes the top a dome.
-@export_range(0.0, 64.0, 0.1, "or_greater") var top_rounding := 0.0:
+@export_range(0.0, 64.0, 0.5, "or_greater") var top_rounding := 0.0:
 	set(value):
 		top_rounding = value
 		_geometry_changed()
 
 ## Radius of the rounding where the side meets the bottom.
-@export_range(0.0, 64.0, 0.1, "or_greater") var bottom_rounding := 0.0:
+@export_range(0.0, 64.0, 0.5, "or_greater") var bottom_rounding := 0.0:
 	set(value):
 		bottom_rounding = value
 		_geometry_changed()

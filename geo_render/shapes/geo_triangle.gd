@@ -4,23 +4,26 @@ extends GeoShape
 ## A triangle in the XY plane, facing the camera (+z) when not rotated. With a
 ## depth, it's a solid wedge (a triangular prism) centered on that plane.
 
-@export var point_a := Vector2(-8.0, -8.0):
+@export_custom(PROPERTY_HINT_RANGE, "-128,128,0.5,or_less,or_greater")
+var point_a := Vector2(-8.0, -8.0):
 	set(value):
 		point_a = value
 		_geometry_changed()
 
-@export var point_b := Vector2(8.0, -8.0):
+@export_custom(PROPERTY_HINT_RANGE, "-128,128,0.5,or_less,or_greater")
+var point_b := Vector2(8.0, -8.0):
 	set(value):
 		point_b = value
 		_geometry_changed()
 
-@export var point_c := Vector2(-8.0, 8.0):
+@export_custom(PROPERTY_HINT_RANGE, "-128,128,0.5,or_less,or_greater")
+var point_c := Vector2(-8.0, 8.0):
 	set(value):
 		point_c = value
 		_geometry_changed()
 
 ## Thickness along z. 0 makes a flat triangle.
-@export_range(0.0, 64.0, 0.1, "or_greater") var depth := 0.0:
+@export_range(0.0, 64.0, 0.5, "or_greater") var depth := 0.0:
 	set(value):
 		depth = value
 		_geometry_changed()

@@ -32,6 +32,11 @@ static var _shelves: Dictionary[int, Array] = {}
 static var _next_shelf_y := 0
 static var _cell_count := 0
 static var _update_requested_frame := -1
+# The viewport the atlas renders before (see request_update()). Viewports render
+# before their parents, and otherwise in the order they were created, so without
+# this, the atlas (created later) would render after the editor's 2D viewport,
+# which would show the previous frame's atlas.
+static var _parent_viewport := RID()
 
 
 ## Returns the cell size for a figure that extends up to radius texels from its
@@ -98,8 +103,13 @@ static func get_texture() -> RID:
 	return _texture
 
 
-## Re-renders the atlas this frame. Call whenever a figure's item changes.
-static func request_update() -> void:
+## Re-renders the atlas this frame. Call whenever a figure's item changes, with
+## the viewport the figure is drawn in, so the atlas renders before it. (If
+## figures are in several viewports, it renders before the last one given.)
+static func request_update(for_viewport := RID()) -> void:
+	if _viewport and for_viewport.is_valid() and for_viewport != _parent_viewport:
+		_parent_viewport = for_viewport
+		RenderingServer.viewport_set_parent_viewport(_viewport, for_viewport)
 	var frame := Engine.get_process_frames()
 	if _viewport and frame != _update_requested_frame:
 		_update_requested_frame = frame
@@ -114,10 +124,6 @@ static func _create() -> void:
 	RenderingServer.viewport_set_transparent_background(_viewport, true)
 	RenderingServer.viewport_set_clear_mode(_viewport, RenderingServer.VIEWPORT_CLEAR_ALWAYS)
 	RenderingServer.viewport_set_update_mode(_viewport, RenderingServer.VIEWPORT_UPDATE_ONCE)
-	# Render before the main viewport, so figures show this frame's atlas.
-	var tree := Engine.get_main_loop() as SceneTree
-	if tree:
-		RenderingServer.viewport_set_parent_viewport(_viewport, tree.root.get_viewport_rid())
 	RenderingServer.viewport_set_active(_viewport, true)
 	_canvas = RenderingServer.canvas_create()
 	RenderingServer.viewport_attach_canvas(_viewport, _canvas)
@@ -135,6 +141,7 @@ static func _free() -> void:
 	_next_shelf_y = 0
 	_cell_count = 0
 	_update_requested_frame = -1
+	_parent_viewport = RID()
 
 
 static func _next_power_of_2(value: int) -> int:

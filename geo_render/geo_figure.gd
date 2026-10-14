@@ -35,6 +35,14 @@ extends Node2D
 ## Faces must point at least this much toward the camera to be drawn.
 const _FACING_EPSILON := 0.0001
 
+# The fields of each shape that figures can override (and animate), as the
+# properties "shapes/<shape name>/<field>".
+const _SHAPE_FIELDS: Array[StringName] = [&"position", &"rotation_degrees", &"scale", &"visible"]
+
+# Property name -> [shape name, field] for "shapes/..." properties, or [] for
+# any other property, so _get() and _set() don't parse names every call.
+static var _property_parse_cache: Dictionary[StringName, Array] = {}
+
 ## The root of the shape tree to draw. Usually saved as its own resource, so
 ## many figures can share it.
 @export var shape: GeoShape:
@@ -58,7 +66,8 @@ const _FACING_EPSILON := 0.0001
 
 ## Rotates the whole figure in 3D, before it's projected. (Node2D.rotation
 ## instead rotates the projected image.)
-@export var model_rotation_degrees := Vector3.ZERO:
+@export_custom(PROPERTY_HINT_RANGE, "-180,180,1,or_less,or_greater,suffix:°")
+var model_rotation_degrees := Vector3.ZERO:
 	set(value):
 		model_rotation_degrees = value
 		queue_redraw()
@@ -70,6 +79,20 @@ const _FACING_EPSILON := 0.0001
 	set(value):
 		pixel_material = value
 		queue_redraw()
+
+## The color the whole figure flashes toward (e.g. white or red when hit).
+## Needs the pixel material.
+@export var flash_color := Color.WHITE:
+	set(value):
+		flash_color = value
+		set_instance_shader_parameter(&"flash_color", value)
+
+## How far the figure is mixed toward flash_color, from 0 (not at all) to 1
+## (a solid silhouette). Animate it for flashes.
+@export_range(0.0, 1.0, 0.01) var flash_amount := 0.0:
+	set(value):
+		flash_amount = value
+		set_instance_shader_parameter(&"flash_amount", value)
 
 @export_group("Explosion")
 ## How long the pieces fly (and fade) for, in seconds.
@@ -105,12 +128,14 @@ var _atlas_item := RID()
 # The material last set on this node's canvas item.
 var _applied_material := RID()
 
-# Per-figure overrides of shapes' transforms, by shape name.
-var _position_overrides: Dictionary[StringName, Vector3] = {}
-var _rotation_overrides: Dictionary[StringName, Vector3] = {}
+# Per-figure overrides of shapes' fields (see _SHAPE_FIELDS): shape name ->
+# field -> value.
+var _overrides: Dictionary[StringName, Dictionary] = {}
 
-# Each shape's transform relative to its parent, with overrides applied.
+# Each shape's transform relative to its parent, and whether it's hidden
+# (itself or by an ancestor), with overrides applied.
 var _pose: Array[Transform3D] = []
+var _hidden := PackedByteArray()
 
 # The current explosion: seconds since it started (-1 if not exploding), and,
 # per shape, the index of the shape at the root of its piece. Pieces' velocities
@@ -120,7 +145,6 @@ var _piece_roots := PackedInt32Array()
 var _piece_velocities := PackedVector3Array()
 var _piece_spin_axes := PackedVector3Array()
 var _piece_spin_angles := PackedFloat32Array()
-var _explosion_top_speed := 0.0
 var _rng := RandomNumberGenerator.new()
 
 
@@ -132,6 +156,9 @@ func _init() -> void:
 
 func _ready() -> void:
 	set_process(is_exploding())
+	# The setters don't run for default values.
+	set_instance_shader_parameter(&"flash_color", flash_color)
+	set_instance_shader_parameter(&"flash_amount", flash_amount)
 
 
 func _process(delta: float) -> void:
@@ -201,7 +228,6 @@ func explode(intensity: float) -> void:
 		alignment += Vector2.from_angle(angles[flying[slot]] - slot * spacing)
 	var start := alignment.angle() if not alignment.is_zero_approx() else _rng.randf() * TAU
 
-	_explosion_top_speed = 0.0
 	for slot in flying.size():
 		var i := flying[slot]
 		var angle := start + (slot + _rng.randf_range(-0.5, 0.5) * explosion_direction_jitter) \
@@ -213,7 +239,6 @@ func explode(intensity: float) -> void:
 		_piece_spin_axes[i] = _random_direction()
 		_piece_spin_angles[i] = deg_to_rad(explosion_max_spin_degrees) * intensity \
 				* _rng.randf_range(0.5, 1.0)
-		_explosion_top_speed = maxf(_explosion_top_speed, speed)
 
 	_explosion_time = 0.0
 	set_process(true)
@@ -242,61 +267,181 @@ func _notification(what: int) -> void:
 		NOTIFICATION_VISIBILITY_CHANGED:
 			if _atlas_item.is_valid():
 				RenderingServer.canvas_item_set_visible(_atlas_item, is_visible_in_tree())
-				GeoPixelAtlas.request_update()
+				_request_atlas_update()
 		NOTIFICATION_PREDELETE:
 			_release_atlas_cell()
 			RenderingServer.free_rid(_mesh)
 
 
 ## Overrides the position (relative to its parent) of the shape with the given
-## name, for this figure only.
+## name, for this figure only. Same as setting "shapes/<name>/position".
 func set_shape_position(shape_name: StringName, value: Vector3) -> void:
-	_position_overrides[shape_name] = value
-	_update_pose(shape_name)
+	_set_shape_field(shape_name, &"position", value)
 
 
 ## Overrides the rotation (relative to its parent) of the shape with the given
 ## name, for this figure only.
 func set_shape_rotation_degrees(shape_name: StringName, value: Vector3) -> void:
-	_rotation_overrides[shape_name] = value
-	_update_pose(shape_name)
+	_set_shape_field(shape_name, &"rotation_degrees", value)
 
 
-## Removes all overrides of shapes' positions and rotations.
+## Overrides the scale of the shape with the given name, for this figure only.
+func set_shape_scale(shape_name: StringName, value: Vector3) -> void:
+	_set_shape_field(shape_name, &"scale", value)
+
+
+## Overrides whether the shape with the given name is visible, for this figure
+## only.
+func set_shape_visible(shape_name: StringName, value: bool) -> void:
+	_set_shape_field(shape_name, &"visible", value)
+
+
+## Removes all overrides of shapes' fields.
 func clear_shape_overrides() -> void:
-	_position_overrides.clear()
-	_rotation_overrides.clear()
+	_overrides.clear()
 	if _mesh_model:
 		_rebuild_pose()
 	queue_redraw()
+	notify_property_list_changed()
 
 
-func _update_pose(shape_name: StringName) -> void:
+# Returns the shape with the given (usable) name, or null.
+func _find_shape(shape_name: StringName) -> GeoShape:
+	if not shape:
+		return null
+	var model := shape.get_compiled()
+	var index: int = model.shape_indices.get(shape_name, -1)
+	return model.shapes[index] if index >= 0 else null
+
+
+func _get_shape_field(shape_name: StringName, field: StringName) -> Variant:
+	var overrides: Dictionary = _overrides.get(shape_name, {})
+	if overrides.has(field):
+		return overrides[field]
+	var found := _find_shape(shape_name)
+	return found.get(field) if found else null
+
+
+func _set_shape_field(shape_name: StringName, field: StringName, value: Variant) -> void:
+	# Values equal to the shape's own aren't overrides (and aren't saved).
+	var found := _find_shape(shape_name)
+	if found and found.get(field) == value:
+		if _overrides.has(shape_name):
+			_overrides[shape_name].erase(field)
+			if _overrides[shape_name].is_empty():
+				_overrides.erase(shape_name)
+	else:
+		if not _overrides.has(shape_name):
+			_overrides[shape_name] = {}
+		_overrides[shape_name][field] = value
 	queue_redraw()
 	if not _mesh_model:
 		return # _draw() will apply all overrides.
 	var index: int = _mesh_model.shape_indices.get(shape_name, -1)
 	if index < 0:
 		push_warning("GeoFigure has no shape named '%s'." % shape_name)
-		return
-	_pose[index] = _make_pose_transform(_mesh_model.shapes[index])
+	elif field == &"visible":
+		_rebuild_hidden()
+	else:
+		_pose[index] = _make_pose_transform(_mesh_model.shapes[index])
 
 
 func _rebuild_pose() -> void:
 	_pose.resize(_mesh_model.shapes.size())
 	for i in _mesh_model.shapes.size():
 		_pose[i] = _make_pose_transform(_mesh_model.shapes[i])
+	_rebuild_hidden()
+
+
+func _rebuild_hidden() -> void:
+	var count := _mesh_model.shapes.size()
+	_hidden.resize(count)
+	for i in count:
+		var pose_shape := _mesh_model.shapes[i]
+		var overrides: Dictionary = _overrides.get(pose_shape.name, {})
+		var parent := _mesh_model.parents[i]
+		var hidden: bool = (parent >= 0 and _hidden[parent] == 1) \
+				or not overrides.get(&"visible", pose_shape.visible)
+		_hidden[i] = 1 if hidden else 0
 
 
 func _make_pose_transform(pose_shape: GeoShape) -> Transform3D:
+	var overrides: Dictionary = _overrides.get(pose_shape.name, {})
 	return GeoShape.make_transform(
-			_position_overrides.get(pose_shape.name, pose_shape.position),
-			_rotation_overrides.get(pose_shape.name, pose_shape.rotation_degrees))
+			overrides.get(&"position", pose_shape.position),
+			overrides.get(&"rotation_degrees", pose_shape.rotation_degrees),
+			overrides.get(&"scale", pose_shape.scale))
+
+
+# Returns [shape name, field] if property is "shapes/<shape name>/<field>",
+# otherwise [].
+static func _parse_shape_property(property: StringName) -> Array:
+	var parsed: Variant = _property_parse_cache.get(property)
+	if parsed == null:
+		parsed = []
+		var parts := String(property).split("/")
+		if parts.size() == 3 and parts[0] == "shapes" and StringName(parts[2]) in _SHAPE_FIELDS:
+			parsed = [StringName(parts[1]), StringName(parts[2])]
+		_property_parse_cache[property] = parsed
+	return parsed
+
+
+func _get_property_list() -> Array[Dictionary]:
+	var properties: Array[Dictionary] = []
+	if not shape:
+		return properties
+	var model := shape.get_compiled()
+	if model.shape_indices.is_empty():
+		return properties
+	# The group's prefix is hidden, and the inspector makes a subsection per shape.
+	properties.append({name = "Shapes", type = TYPE_NIL, usage = PROPERTY_USAGE_GROUP,
+			hint_string = "shapes/"})
+	var names := model.shape_indices.keys()
+	names.sort_custom(func(a: StringName, b: StringName) -> bool:
+		return model.shape_indices[a] < model.shape_indices[b])
+	for shape_name: StringName in names:
+		var prefix := "shapes/%s/" % shape_name
+		# Only overridden fields are saved; the rest come from the shape.
+		var overrides: Dictionary = _overrides.get(shape_name, {})
+		var usage := func(field: StringName) -> int:
+			return PROPERTY_USAGE_DEFAULT if overrides.has(field) else PROPERTY_USAGE_EDITOR
+		properties.append({name = prefix + "position", type = TYPE_VECTOR3,
+				hint = PROPERTY_HINT_RANGE, hint_string = "-128,128,0.5,or_less,or_greater",
+				usage = usage.call(&"position")})
+		properties.append({name = prefix + "rotation_degrees", type = TYPE_VECTOR3,
+				hint = PROPERTY_HINT_RANGE, hint_string = "-180,180,1,or_less,or_greater,suffix:°",
+				usage = usage.call(&"rotation_degrees")})
+		properties.append({name = prefix + "scale", type = TYPE_VECTOR3,
+				hint = PROPERTY_HINT_RANGE, hint_string = "0,4,0.05,or_less,or_greater",
+				usage = usage.call(&"scale")})
+		properties.append({name = prefix + "visible", type = TYPE_BOOL,
+				usage = usage.call(&"visible")})
+	return properties
+
+
+func _get(property: StringName) -> Variant:
+	var parsed := _parse_shape_property(property)
+	return _get_shape_field(parsed[0], parsed[1]) if parsed else null
+
+
+func _property_can_revert(property: StringName) -> bool:
+	return not _parse_shape_property(property).is_empty()
+
+
+func _property_get_revert(property: StringName) -> Variant:
+	var parsed := _parse_shape_property(property)
+	if not parsed:
+		return null
+	var found := _find_shape(parsed[0])
+	return found.get(parsed[1]) if found else null
 
 
 func _set_model(model: GeoCompiledModel) -> void:
 	_mesh_model = model
 	_rebuild_pose()
+	# The "shapes/..." properties follow the tree.
+	notify_property_list_changed()
+	update_configuration_warnings()
 	if is_exploding():
 		reassemble() # The pieces were for the old model.
 	RenderingServer.mesh_clear(_mesh)
@@ -308,13 +453,22 @@ func _set_model(model: GeoCompiledModel) -> void:
 			Image.FORMAT_RF, model.surface.attribute_data)
 
 
-func _set(property: StringName, _value: Variant) -> bool:
+func _set(property: StringName, value: Variant) -> bool:
 	if property == &"material":
 		# CanvasItem will set its material on the canvas item, so _draw() must
 		# set it again.
 		_applied_material = RID()
 		queue_redraw()
-	return false
+		return false
+	var parsed := _parse_shape_property(property)
+	if not parsed:
+		return false
+	_set_shape_field(parsed[0], parsed[1], value)
+	return true
+
+
+func _request_atlas_update() -> void:
+	GeoPixelAtlas.request_update(get_viewport().get_viewport_rid() if is_inside_tree() else RID())
 
 
 func _release_atlas_cell() -> void:
@@ -329,7 +483,7 @@ func _release_atlas_cell() -> void:
 func _draw() -> void:
 	if _atlas_item.is_valid():
 		RenderingServer.canvas_item_clear(_atlas_item)
-		GeoPixelAtlas.request_update()
+		_request_atlas_update()
 	if not pixel_material:
 		_release_atlas_cell()
 	var draw_material := pixel_material.get_rid() if pixel_material \
@@ -357,29 +511,49 @@ func _draw() -> void:
 		_apply_explosion(transforms)
 
 	# Transform every shape's vertices and normals into view space. (The
-	# transform of packed arrays happens in native code.)
+	# transform of packed arrays happens in native code.) Normals transform by
+	# the inverse transpose, which keeps them perpendicular to scaled surfaces.
+	# They're left unnormalized: culling only needs their sign, and shaders
+	# normalize them. Shapes scaled to nothing can't be drawn (or inverted).
 	var positions := PackedVector3Array()
 	var normals := PackedVector3Array()
+	var normal_transforms: Array[Transform3D] = []
+	normal_transforms.resize(shape_count)
+	var collapsed := PackedByteArray()
+	collapsed.resize(shape_count)
 	for i in shape_count:
 		var xform := transforms[i]
 		var geometry := model.geometries[i]
+		if absf(xform.basis.determinant()) < 0.000001:
+			collapsed[i] = 1
+		else:
+			normal_transforms[i] = Transform3D(xform.basis.inverse().transposed(), Vector3.ZERO)
 		if not geometry.positions.is_empty():
 			positions.append_array(xform * geometry.positions)
-			# There's no scaling, so the basis is a pure rotation and can
-			# transform normals as is.
-			normals.append_array(Transform3D(xform.basis, Vector3.ZERO) * geometry.normals)
+			# Keep the vertex layout fixed, even for collapsed shapes.
+			normals.append_array(geometry.normals if collapsed[i] == 1
+					else normal_transforms[i] * geometry.normals)
 
-	# Sort shapes back to front by depth (view-space z), and find their bounds.
+	# Sort the shapes being drawn back to front by depth (view-space z), and find
+	# their bounds and how far they reach from the figure's origin.
 	var depths := PackedFloat32Array()
 	depths.resize(shape_count)
 	var order: Array[int] = []
-	var bounds := AABB(transforms[model.drawable_shapes[0]].origin, Vector3.ZERO)
+	var bounds := AABB()
+	var reach := 0.0
 	for i in model.drawable_shapes:
+		if _hidden[i] == 1 or collapsed[i] == 1:
+			continue
 		var xform := transforms[i]
 		depths[i] = (xform * model.geometries[i].sort_point).z + model.depth_biases[i]
+		var scale_3d := xform.basis.get_scale().abs()
+		var radius := model.radii[i] * scale_3d[scale_3d.max_axis_index()]
+		var shape_bounds := AABB(xform.origin - Vector3.ONE * radius, Vector3.ONE * radius * 2.0)
+		bounds = shape_bounds if order.is_empty() else bounds.merge(shape_bounds)
+		reach = maxf(reach, xform.origin.length() + radius)
 		order.append(i)
-		var radius := Vector3.ONE * model.radii[i]
-		bounds = bounds.merge(AABB(xform.origin - radius, radius * 2.0))
+	if order.is_empty():
+		return
 	order.sort_custom(func(a: int, b: int) -> bool:
 		return depths[a] < depths[b] if depths[a] != depths[b] else a < b)
 
@@ -387,8 +561,7 @@ func _draw() -> void:
 	# with degenerate triangles.
 	var indices := PackedByteArray()
 	for i in order:
-		var facing := Transform3D(transforms[i].basis, Vector3.ZERO) \
-				* model.geometries[i].face_normals
+		var facing := normal_transforms[i] * model.geometries[i].face_normals
 		var faces: Array = model.face_index_bytes[i]
 		for face in facing.size():
 			if facing[face].z > _FACING_EPSILON:
@@ -414,7 +587,7 @@ func _draw() -> void:
 	RenderingServer.mesh_set_custom_aabb(_mesh, bounds)
 	var modulate_color := Color(1.0, 1.0, 1.0, fade)
 	if pixel_material:
-		_draw_pixelated(model, modulate_color)
+		_draw_pixelated(reach, modulate_color)
 	else:
 		RenderingServer.canvas_item_add_mesh(get_canvas_item(), _mesh, Transform2D(),
 				modulate_color)
@@ -453,13 +626,13 @@ func _apply_explosion(transforms: Array[Transform3D]) -> void:
 		transforms[i] = piece_moves[piece] * transforms[i]
 
 
-func _draw_pixelated(model: GeoCompiledModel, modulate_color: Color) -> void:
+# reach is how far the drawn shapes extend from the figure's origin.
+func _draw_pixelated(reach: float, modulate_color: Color) -> void:
 	var pixel_size := camera.pixel_size if camera else GeoCamera.DEFAULT_PIXEL_SIZE
-	var radius := model.bounding_radius
-	if is_exploding():
-		radius += _explosion_top_speed * _explosion_time
-	var cell_size := GeoPixelAtlas.get_cell_size(radius / pixel_size)
-	if _atlas_cell.size.x != cell_size:
+	var cell_size := GeoPixelAtlas.get_cell_size(reach / pixel_size)
+	# Grow the cell right away, but only shrink it once it's far too big, so a
+	# figure that's animating near a size boundary doesn't keep reallocating.
+	if cell_size > _atlas_cell.size.x or cell_size * 4 <= _atlas_cell.size.x:
 		_release_atlas_cell()
 		_atlas_cell = GeoPixelAtlas.allocate(cell_size)
 		if not _atlas_cell.has_area():
@@ -472,10 +645,10 @@ func _draw_pixelated(model: GeoCompiledModel, modulate_color: Color) -> void:
 	RenderingServer.canvas_item_set_transform(_atlas_item, Transform2D(
 			0.0, Vector2.ONE / pixel_size, 0.0, Vector2(_atlas_cell.get_center())))
 	RenderingServer.canvas_item_add_mesh(_atlas_item, _mesh)
-	GeoPixelAtlas.request_update()
+	_request_atlas_update()
 
 	# Then draw the cell here, scaled back up.
-	var size := cell_size * pixel_size
+	var size := _atlas_cell.size.x * pixel_size
 	RenderingServer.canvas_item_add_texture_rect_region(get_canvas_item(),
 			Rect2(-size / 2.0, -size / 2.0, size, size), GeoPixelAtlas.get_texture(),
 			Rect2(_atlas_cell), modulate_color)
@@ -484,4 +657,4 @@ func _draw_pixelated(model: GeoCompiledModel, modulate_color: Color) -> void:
 func _get_configuration_warnings() -> PackedStringArray:
 	if not shape:
 		return ["Set a shape (e.g. a GeoGroup) to draw."]
-	return []
+	return shape.get_compiled().name_problems

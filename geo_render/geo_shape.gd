@@ -49,21 +49,31 @@ extends Resource
 
 @export_group("Transform")
 ## Position relative to the parent shape.
-@export var position := Vector3.ZERO:
+@export_custom(PROPERTY_HINT_RANGE, "-128,128,0.5,or_less,or_greater")
+var position := Vector3.ZERO:
 	set(value):
 		position = value
 		_changed()
 
 ## Rotation relative to the parent shape, in degrees.
-@export var rotation_degrees := Vector3.ZERO:
+@export_custom(PROPERTY_HINT_RANGE, "-180,180,1,or_less,or_greater,suffix:°")
+var rotation_degrees := Vector3.ZERO:
 	set(value):
 		rotation_degrees = value
+		_changed()
+
+## Scale along the shape's own axes, applied before its rotation (like
+## Node3D). Children are scaled with it.
+@export_custom(PROPERTY_HINT_RANGE, "0,4,0.05,or_less,or_greater")
+var scale := Vector3.ONE:
+	set(value):
+		scale = value
 		_changed()
 
 ## Added to this shape's depth when sorting shapes. Positive values draw it in
 ## front of more shapes. Only needed when the automatic sorting (by the center
 ## of each shape's bounds) gets it wrong.
-@export var depth_bias := 0.0:
+@export_range(-50.0, 50.0, 0.5, "or_less", "or_greater") var depth_bias := 0.0:
 	set(value):
 		depth_bias = value
 		_changed()
@@ -101,10 +111,11 @@ func get_compiled() -> GeoCompiledModel:
 	return _compiled
 
 
-static func make_transform(pos: Vector3, rot_degrees: Vector3) -> Transform3D:
+static func make_transform(pos: Vector3, rot_degrees: Vector3,
+		shape_scale := Vector3.ONE) -> Transform3D:
 	var radians := Vector3(deg_to_rad(rot_degrees.x), deg_to_rad(rot_degrees.y),
 			deg_to_rad(rot_degrees.z))
-	return Transform3D(Basis.from_euler(radians), pos)
+	return Transform3D(Basis.from_euler(radians) * Basis.from_scale(shape_scale), pos)
 
 
 ## Override to add this shape's faces. See GeoGeometry.

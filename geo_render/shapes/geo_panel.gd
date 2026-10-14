@@ -4,7 +4,8 @@ extends GeoShape
 ## A flat rectangle centered on its position, facing the camera (+z) when not
 ## rotated. Useful for details on the surface of other shapes.
 
-@export var size := Vector2(16.0, 16.0):
+@export_custom(PROPERTY_HINT_RANGE, "0,128,0.5,or_greater")
+var size := Vector2(16.0, 16.0):
 	set(value):
 		size = value
 		_geometry_changed()

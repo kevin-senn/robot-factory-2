@@ -4,7 +4,7 @@ extends GeoShape
 ## A sphere centered on its position, or the top part of one (a dome) when the
 ## sweep is less than 180 degrees.
 
-@export var radius := 16.0:
+@export_range(0.0, 128.0, 0.5, "or_greater") var radius := 16.0:
 	set(value):
 		radius = value
 		_geometry_changed()

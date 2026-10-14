@@ -28,13 +28,15 @@ var radii := PackedFloat32Array()
 ## Each shape's first vertex in the combined vertex arrays, and its vertex count.
 var vertex_offsets := PackedInt32Array()
 var vertex_counts := PackedInt32Array()
-## Distance from the root's origin to the farthest vertex in the rest pose.
-## (Overriding positions can move shapes past it.)
-var bounding_radius := 0.0
-## Indices of the shapes that have faces and aren't hidden.
+## Indices of the shapes that have faces, hidden or not. (Figures can show
+## hidden shapes, so they're in the mesh too.)
 var drawable_shapes := PackedInt32Array()
-## Shape name -> shape index. If names repeat, the first shape wins.
+## Shape name -> shape index, for shapes whose names are usable: unique, and
+## without "/" or ":" (so they work in property paths like
+## "shapes/head/scale").
 var shape_indices: Dictionary[StringName, int] = {}
+## Descriptions of names that aren't usable.
+var name_problems := PackedStringArray()
 
 var vertex_count := 0
 ## RenderingServer surface data (see RenderingServer.mesh_add_surface()), or
@@ -60,12 +62,22 @@ var _colors := PackedColorArray()
 var _uvs := PackedVector2Array()
 var _custom1 := PackedFloat32Array()
 var _face_indices: Array[Array] = []
+var _name_counts: Dictionary[StringName, int] = {}
+var _first_named: Dictionary[StringName, int] = {}
 
 
 func _init(root: GeoShape) -> void:
-	_add_shape(root, -1, false, 0, 0.0)
+	_add_shape(root, -1, 0)
+	for shape_name: StringName in _name_counts:
+		var text := String(shape_name)
+		if _name_counts[shape_name] > 1:
+			name_problems.append("Several shapes are named '%s'." % text)
+		elif text.contains("/") or text.contains(":"):
+			name_problems.append("Shape name '%s' can't contain / or :." % text)
+		else:
+			shape_indices[shape_name] = _first_named[shape_name]
 	if drawable_shapes.size() > MAX_DRAWABLE_SHAPES:
-		push_warning(("GeoShape tree has %d visible shapes with faces; pixel outlines"
+		push_warning(("GeoShape tree has %d shapes with faces; pixel outlines"
 				+ " support up to %d.") % [drawable_shapes.size(), MAX_DRAWABLE_SHAPES])
 	if drawable_shapes.is_empty():
 		return
@@ -103,31 +115,28 @@ func _init(root: GeoShape) -> void:
 		face_index_bytes.append(shape_bytes)
 
 
-# parent_reach is the farthest the parent's origin can be from the root's.
-func _add_shape(shape: GeoShape, parent: int, parent_hidden: bool, depth: int,
-		parent_reach: float) -> void:
+func _add_shape(shape: GeoShape, parent: int, depth: int) -> void:
 	if depth > _MAX_DEPTH:
 		push_error("GeoShape tree is too deep. Does a shape contain itself?")
 		return
 
 	var index := shapes.size()
-	var hidden := parent_hidden or not shape.visible
 	var geometry := shape.get_geometry()
 	shapes.append(shape)
 	parents.append(parent)
 	geometries.append(geometry)
 	depth_biases.append(shape.depth_bias)
-	if shape.name and not shape_indices.has(shape.name):
-		shape_indices[shape.name] = index
-	if not hidden and geometry.face_count() > 0:
+	if shape.name:
+		_name_counts[shape.name] = _name_counts.get(shape.name, 0) + 1
+		if not _first_named.has(shape.name):
+			_first_named[shape.name] = index
+	if geometry.face_count() > 0:
 		drawable_shapes.append(index)
 
 	var radius := 0.0
 	for p in geometry.positions:
 		radius = maxf(radius, p.length())
 	radii.append(radius)
-	var reach := parent_reach + shape.position.length()
-	bounding_radius = maxf(bounding_radius, reach + radius)
 	vertex_offsets.append(vertex_count)
 	vertex_counts.append(geometry.positions.size())
 
@@ -156,7 +165,7 @@ func _add_shape(shape: GeoShape, parent: int, parent_hidden: bool, depth: int,
 
 	for child in shape.children:
 		if child:
-			_add_shape(child, index, hidden, depth + 1, reach)
+			_add_shape(child, index, depth + 1)
 
 
 static func _encode_indices(indices: PackedInt32Array, stride: int) -> PackedByteArray:

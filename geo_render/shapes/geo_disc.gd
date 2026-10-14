@@ -4,7 +4,8 @@ extends GeoShape
 ## A flat circle or ellipse centered on its position, facing the camera (+z)
 ## when not rotated. Can be cut down to an arc, e.g. a semicircle.
 
-@export var radius := Vector2(8.0, 8.0):
+@export_custom(PROPERTY_HINT_RANGE, "0,128,0.5,or_greater")
+var radius := Vector2(8.0, 8.0):
 	set(value):
 		radius = value
 		_geometry_changed()

@@ -9,7 +9,8 @@ extends GeoShape
 ## single color hide this.
 
 ## The other end of the line, relative to its position.
-@export var end := Vector3(0.0, -16.0, 0.0):
+@export_custom(PROPERTY_HINT_RANGE, "-128,128,0.5,or_less,or_greater")
+var end := Vector3(0.0, -16.0, 0.0):
 	set(value):
 		end = value
 		_geometry_changed()
@@ -17,12 +18,13 @@ extends GeoShape
 ## Curves the line, by moving its middle control point this far from the
 ## straight line's middle. (The line is a quadratic Bézier curve, so it bends
 ## about half this far.)
-@export var bend := Vector3.ZERO:
+@export_custom(PROPERTY_HINT_RANGE, "-128,128,0.5,or_less,or_greater")
+var bend := Vector3.ZERO:
 	set(value):
 		bend = value
 		_geometry_changed()
 
-@export_range(0.1, 16.0, 0.1, "or_greater") var thickness := 2.0:
+@export_range(0.5, 16.0, 0.5, "or_greater") var thickness := 2.0:
 	set(value):
 		thickness = value
 		_geometry_changed()
