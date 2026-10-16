@@ -8,44 +8,68 @@
 [ext_resource type="Script" uid="uid://di5xu80x5ybwh" path="res://addons/geo_render/shapes/geo_group.gd" id="6_o34go"]
 
 [sub_resource type="Resource" id="Resource_dbj5h"]
-resource_name = "foot_left"
+resource_name = "foot_left_block"
 script = ExtResource("2_62wnb")
 size = Vector3(18, 18, 26)
-name = &"foot_left"
+name = &"foot_left_block"
+visible = false
 color = Color(0.03529412, 0.39607844, 0.39215687, 1)
 glued = true
 position = Vector3(-12, 16, 3)
 
+[sub_resource type="Resource" id="Resource_sukwn"]
+resource_name = "foot_left"
+script = ExtResource("5_bbam3")
+radius = 10.0
+height = 18.0
+top_rounding = 10.0
+name = &"foot_left"
+color = Color(0.03529412, 0.39607844, 0.39215687, 1)
+glued = true
+position = Vector3(-13, 16, -0.5)
+
 [sub_resource type="Resource" id="Resource_ljlpa"]
 resource_name = "leg_left"
 script = ExtResource("3_fdcbt")
-end = Vector3(-13, 7, 3)
+end = Vector3(-13, 8, 3)
 bend = Vector3(-8, -8, 0)
 thickness = 6.0
 name = &"leg_left"
 color = Color(0.13725491, 0.21568628, 0.23137255, 1)
 position = Vector3(-17, -25, 0)
-children = Array[ExtResource("1_sukwn")]([SubResource("Resource_dbj5h")])
+children = Array[ExtResource("1_sukwn")]([SubResource("Resource_dbj5h"), SubResource("Resource_sukwn")])
 
 [sub_resource type="Resource" id="Resource_28u1p"]
-resource_name = "foot_right"
+resource_name = "foot_right_block"
 script = ExtResource("2_62wnb")
 size = Vector3(18, 18, 26)
-name = &"foot_right"
+name = &"foot_right_block"
+visible = false
 color = Color(0.03529412, 0.39607844, 0.39215687, 1)
 glued = true
 position = Vector3(12, 16, 3)
 
+[sub_resource type="Resource" id="Resource_62wnb"]
+resource_name = "foot_right"
+script = ExtResource("5_bbam3")
+radius = 10.0
+height = 18.0
+top_rounding = 10.0
+name = &"foot_right"
+color = Color(0.03529412, 0.39607844, 0.39215687, 1)
+glued = true
+position = Vector3(13, 16, -0.5)
+
 [sub_resource type="Resource" id="Resource_1vpco"]
 resource_name = "leg_right"
 script = ExtResource("3_fdcbt")
-end = Vector3(13, 7, 3)
-bend = Vector3(8, -8, 0)
+end = Vector3(13, 8, 3)
+bend = Vector3(13.5, -8, 0)
 thickness = 6.0
 name = &"leg_right"
 color = Color(0.13725491, 0.21568628, 0.23137255, 1)
 position = Vector3(17, -25, 0)
-children = Array[ExtResource("1_sukwn")]([SubResource("Resource_28u1p")])
+children = Array[ExtResource("1_sukwn")]([SubResource("Resource_28u1p"), SubResource("Resource_62wnb")])
 
 [sub_resource type="Resource" id="Resource_d123g"]
 resource_name = "panel"
