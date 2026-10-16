@@ -596,23 +596,27 @@ func _draw() -> void:
 			else:
 				draw_line(Vector2(0.0, at), Vector2(size.x, at), color)
 
-	# The axes through the origin, colored by the model axis each shows.
+	# The axes through the origin, colored by the model axis each shows, labeled
+	# in the theme's font size (which includes the editor's display scale).
 	var font := get_theme_default_font()
+	var font_size := get_theme_default_font_size()
+	var pad := font_size * 0.4
 	for screen_axis in 2:
 		var direction := Vector3.ZERO
 		direction[screen_axis] = 1.0
 		var model_direction := get_view_basis().inverse() * direction
 		var model_axis := model_direction.abs().max_axis_index()
 		var color := _AXIS_COLORS[model_axis]
-		var label := ("+" if model_direction[model_axis] > 0.0 else "-") + _AXIS_NAMES[model_axis]
+		var label := ("+" if model_direction[model_axis] > 0.0 else "−") + _AXIS_NAMES[model_axis]
 		if screen_axis == 0:
 			draw_line(Vector2(0.0, origin.y), Vector2(size.x, origin.y), color * Color(1, 1, 1, 0.6))
-			draw_string(font, Vector2(size.x - 28.0, origin.y - 4.0), label,
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+			var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+			draw_string(font, Vector2(size.x - width - pad, origin.y - pad), label,
+					HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 		else:
 			draw_line(Vector2(origin.x, 0.0), Vector2(origin.x, size.y), color * Color(1, 1, 1, 0.6))
-			draw_string(font, Vector2(origin.x + 4.0, size.y - 6.0), label,
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+			draw_string(font, Vector2(origin.x + pad, size.y - pad), label,
+					HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 
 func _draw_overlay() -> void:
