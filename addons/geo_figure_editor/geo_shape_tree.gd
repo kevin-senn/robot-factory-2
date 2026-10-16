@@ -28,6 +28,7 @@ var _items: Dictionary[GeoShape, TreeItem] = {}
 var _types: Array[Dictionary] = []
 var _updating := false
 var _placeholder_icon: Texture2D
+var _class_icons: Dictionary[StringName, Texture2D] = {}
 
 
 func _init() -> void:
@@ -116,8 +117,7 @@ func _update_item(item: TreeItem, shape: GeoShape) -> void:
 	var type_name := _class_name(shape)
 	item.set_text(0, String(shape.name) if shape.name else "(%s)" % type_name.trim_prefix("Geo"))
 	item.set_tooltip_text(0, "%s (%s)" % [shape.name, type_name])
-	item.set_icon(0, _icon(_TYPE_ICONS.get(type_name, &"Resource")))
-	item.set_icon_max_width(0, 16)
+	item.set_icon(0, _type_icon(type_name))
 	item.set_custom_color(0, Color(1.0, 1.0, 1.0, 1.0 if shape.visible else 0.45))
 	if item.get_button_count(0) == 0:
 		item.add_button(0, _icon(&"GuiVisibilityVisible"), _BUTTON_VISIBLE)
@@ -135,6 +135,46 @@ func _update_item(item: TreeItem, shape: GeoShape) -> void:
 func _class_name(shape: GeoShape) -> String:
 	var script: Script = shape.get_script()
 	return String(script.get_global_name()) if script else "GeoShape"
+
+
+# A shape type's icon: an editor icon for the built-in shapes, the class's
+# @icon for custom shapes that have one, else a generic shape icon.
+func _type_icon(type_name: StringName) -> Texture2D:
+	if _TYPE_ICONS.has(type_name):
+		return _icon(_TYPE_ICONS[type_name])
+	if not _class_icons.has(type_name):
+		var icon: Texture2D = null
+		for info in ProjectSettings.get_global_class_list():
+			if info["class"] == type_name and info.get("icon", "") != "":
+				icon = _load_class_icon(info["icon"])
+		_class_icons[type_name] = icon
+	return _class_icons[type_name] if _class_icons[type_name] else _icon(&"Shape3D")
+
+
+# Loads an @icon at the size of the editor's icons (16 pixels times the editor
+# scale), like the editor does for custom classes. SVGs are redrawn at that size
+# so they stay sharp.
+func _load_class_icon(path: String) -> Texture2D:
+	var texture := load(path) as Texture2D
+	if not texture or texture.get_width() <= 0:
+		return null
+	var target := roundi(16.0 * (EditorInterface.get_editor_scale() if Engine.is_editor_hint() else 1.0))
+	if texture.get_width() == target and texture.get_height() == target:
+		return texture
+	var image: Image
+	if path.get_extension().to_lower() == "svg":
+		image = Image.new()
+		if image.load_svg_from_string(FileAccess.get_file_as_string(path),
+				float(target) / maxi(texture.get_width(), texture.get_height())) != OK:
+			image = null
+	if not image:
+		image = texture.get_image()
+		if image.is_compressed():
+			image.decompress()
+		var ratio := float(target) / maxi(image.get_width(), image.get_height())
+		image.resize(maxi(roundi(image.get_width() * ratio), 1),
+				maxi(roundi(image.get_height() * ratio), 1), Image.INTERPOLATE_LANCZOS)
+	return ImageTexture.create_from_image(image)
 
 
 func _icon(icon_name: StringName) -> Texture2D:
@@ -162,7 +202,7 @@ func _fill_add_menu() -> void:
 	popup.clear()
 	_types = M.shape_types()
 	for i in _types.size():
-		popup.add_icon_item(_icon(_TYPE_ICONS.get(_types[i]["class"], &"Resource")),
+		popup.add_icon_item(_type_icon(_types[i]["class"]),
 				_types[i]["name"], i)
 
 

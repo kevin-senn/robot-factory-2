@@ -10,7 +10,7 @@ extends Control
 ## In both: the wheel zooms, middle-drag pans and F frames the figure.
 
 const M := preload("res://addons/geo_figure_editor/geo_editor_math.gd")
-const _SMOOTH_SHADER := preload("res://geo_render/geo_shading_example.gdshader")
+const _SMOOTH_SHADER := preload("res://addons/geo_render/geo_shading_example.gdshader")
 
 const _MIN_DRAG_PIXELS := 3.0
 const _HIT_TOLERANCE_PIXELS := 3.0

@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://co00exuvca2bc"]
 
 [ext_resource type="Script" uid="uid://drkpra7a6rr4m" path="res://demo/geo_demo.gd" id="1_demo"]
-[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://geo_render/geo_figure.gd" id="2_figure"]
+[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://addons/geo_render/geo_figure.gd" id="2_figure"]
 [ext_resource type="Resource" uid="uid://b1kbdb28bwsat" path="res://demo/robot.tres" id="3_robot"]
 [ext_resource type="Resource" path="res://demo/head_on_camera.tres" id="4_head_on"]
 

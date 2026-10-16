@@ -6,7 +6,7 @@ shader_type canvas_item;
 // Write alpha (the key) as is, instead of blending with it.
 render_mode blend_disabled;
 
-#include "res://geo_render/pixel/geo_pixel_common.gdshaderinc"
+#include "res://addons/geo_render/pixel/geo_pixel_common.gdshaderinc"
 
 // Direction toward the light, in view space (x right, y down, z toward the
 // camera). The default is up, left and in front.

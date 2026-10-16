@@ -1,11 +1,11 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://c2f1t02psqy65"]
 
-[ext_resource type="Script" path="res://demo/geo_stress_test.gd" id="1_stress"]
+[ext_resource type="Script" uid="uid://bk1uwq4gf2wcp" path="res://demo/geo_stress_test.gd" id="1_stress"]
 
-[node name="GeoStressTest" type="Node2D"]
+[node name="GeoStressTest" type="Node2D" unique_id=408381217]
 script = ExtResource("1_stress")
 
-[node name="Stats" type="Label" parent="."]
+[node name="Stats" type="Label" parent="." unique_id=1045936043]
 z_index = 1
 offset_left = 8.0
 offset_top = 8.0

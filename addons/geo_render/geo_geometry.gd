@@ -3,10 +3,14 @@ class_name GeoGeometry
 extends RefCounted
 ## Tessellated geometry for one GeoShape, in the shape's local space.
 ##
-## The geometry is a list of planar, convex faces. Every GeoShape primitive is
-## a convex solid (or a single flat face), so once back faces are culled, its
+## The geometry is a list of planar, convex faces. Every built-in GeoShape is a
+## convex solid (or a single flat face), so once back faces are culled, its
 ## remaining faces never overlap each other and can be drawn in any order. That
 ## means depth sorting is only needed between shapes, never within one.
+##
+## Within a shape, the faces facing the camera are drawn in the order they were
+## added. A shape that isn't convex can add the faces that can be hidden behind
+## its others first (e.g. GeoHexNut adds its hole's walls before its outside).
 ##
 ## Built once per shape (and cached on it), then shared by every GeoFigure that
 ## draws that shape.

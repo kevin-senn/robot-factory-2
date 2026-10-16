@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="GeoGroup" format=3 uid="uid://djq7c8f4xm23a"]
 
-[ext_resource type="Script" uid="uid://c7nve4tv6e6ia" path="res://geo_render/geo_shape.gd" id="1_sukwn"]
-[ext_resource type="Script" uid="uid://etry2mceim7b" path="res://geo_render/shapes/geo_box.gd" id="2_62wnb"]
-[ext_resource type="Script" uid="uid://crc88dbnsmaxp" path="res://geo_render/shapes/geo_line.gd" id="3_fdcbt"]
-[ext_resource type="Script" uid="uid://dghurmq0mmjfl" path="res://geo_render/shapes/geo_panel.gd" id="4_imki3"]
-[ext_resource type="Script" uid="uid://dtsled3me3lsf" path="res://geo_render/shapes/geo_cylinder.gd" id="5_bbam3"]
-[ext_resource type="Script" uid="uid://di5xu80x5ybwh" path="res://geo_render/shapes/geo_group.gd" id="6_o34go"]
+[ext_resource type="Script" uid="uid://c7nve4tv6e6ia" path="res://addons/geo_render/geo_shape.gd" id="1_sukwn"]
+[ext_resource type="Script" uid="uid://etry2mceim7b" path="res://addons/geo_render/shapes/geo_box.gd" id="2_62wnb"]
+[ext_resource type="Script" uid="uid://crc88dbnsmaxp" path="res://addons/geo_render/shapes/geo_line.gd" id="3_fdcbt"]
+[ext_resource type="Script" uid="uid://dghurmq0mmjfl" path="res://addons/geo_render/shapes/geo_panel.gd" id="4_imki3"]
+[ext_resource type="Script" uid="uid://dtsled3me3lsf" path="res://addons/geo_render/shapes/geo_cylinder.gd" id="5_bbam3"]
+[ext_resource type="Script" uid="uid://di5xu80x5ybwh" path="res://addons/geo_render/shapes/geo_group.gd" id="6_o34go"]
 
 [sub_resource type="Resource" id="Resource_dbj5h"]
 resource_name = "foot_left"

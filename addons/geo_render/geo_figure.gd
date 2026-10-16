@@ -55,7 +55,7 @@ static var _property_parse_cache: Dictionary[StringName, Array] = {}
 		queue_redraw()
 		update_configuration_warnings()
 
-@export var camera: GeoCamera = preload("res://geo_render/default_geo_camera.tres"):
+@export var camera: GeoCamera = preload("res://addons/geo_render/default_geo_camera.tres"):
 	set(value):
 		if camera:
 			camera.changed.disconnect(queue_redraw)
@@ -73,9 +73,9 @@ var model_rotation_degrees := Vector3.ZERO:
 		queue_redraw()
 
 ## Draws the figure pixelated, with this material (normally
-## geo_render/pixel/geo_pixel_display.tres, shared by all figures).
+## pixel/geo_pixel_display.tres, shared by all figures).
 ## If null, the figure is drawn as smooth geometry instead, with material.
-@export var pixel_material: ShaderMaterial = preload("res://geo_render/pixel/geo_pixel_display.tres"):
+@export var pixel_material: ShaderMaterial = preload("res://addons/geo_render/pixel/geo_pixel_display.tres"):
 	set(value):
 		pixel_material = value
 		queue_redraw()

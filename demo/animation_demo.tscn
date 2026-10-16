@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://bfjl03k0bnk68"]
 
-[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://geo_render/geo_figure.gd" id="1_8xwf0"]
+[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://addons/geo_render/geo_figure.gd" id="1_8xwf0"]
 [ext_resource type="Resource" uid="uid://djq7c8f4xm23a" path="res://demo/basic_bot.tres" id="2_fa4w0"]
-[ext_resource type="Resource" uid="uid://csitumcoixtgy" path="res://geo_render/head_on_camera.tres" id="3_fa4w0"]
+[ext_resource type="Resource" uid="uid://csitumcoixtgy" path="res://demo/basic_bot_camera.tres" id="3_fa4w0"]
 
 [sub_resource type="Animation" id="Animation_ni6qi"]
 length = 0.001

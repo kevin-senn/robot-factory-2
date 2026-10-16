@@ -21,7 +21,7 @@ extends Object
 const WIDTH := 2048
 const MAX_HEIGHT := 16384
 const MIN_CELL_SIZE := 16
-const LIGHTING_MATERIAL: ShaderMaterial = preload("res://geo_render/pixel/geo_pixel_lighting.tres")
+const LIGHTING_MATERIAL: ShaderMaterial = preload("res://addons/geo_render/pixel/geo_pixel_lighting.tres")
 
 static var _viewport: RID
 static var _canvas: RID

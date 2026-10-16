@@ -122,7 +122,8 @@ static func shape_types() -> Array[Dictionary]:
 			base = by_name[base]["base"]
 		if base == &"GeoShape":
 			result.append({"name": String(info["class"]).trim_prefix("Geo"),
-					"class": info["class"], "path": info["path"]})
+					"class": info["class"], "path": info["path"],
+					"icon": info.get("icon", "")})
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.name < b.name)
 	return result
 

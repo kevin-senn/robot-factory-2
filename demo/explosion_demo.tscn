@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://2dvwpa1hiry0"]
 
 [ext_resource type="Script" uid="uid://cx4oanbas3d50" path="res://demo/explosion_demo.gd" id="1_demo"]
-[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://geo_render/geo_figure.gd" id="2_figure"]
+[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://addons/geo_render/geo_figure.gd" id="2_figure"]
 [ext_resource type="Resource" uid="uid://djq7c8f4xm23a" path="res://demo/basic_bot.tres" id="3_bot"]
-[ext_resource type="Resource" uid="uid://csitumcoixtgy" path="res://geo_render/head_on_camera.tres" id="4_0e6m1"]
-[ext_resource type="Script" uid="uid://c7nve4tv6e6ia" path="res://geo_render/geo_shape.gd" id="4_7j6ks"]
-[ext_resource type="Script" uid="uid://c7mjvjcnyj37v" path="res://geo_render/shapes/geo_sphere.gd" id="4_sphere"]
+[ext_resource type="Resource" uid="uid://csitumcoixtgy" path="res://demo/basic_bot_camera.tres" id="4_0e6m1"]
+[ext_resource type="Script" uid="uid://c7nve4tv6e6ia" path="res://addons/geo_render/geo_shape.gd" id="4_7j6ks"]
+[ext_resource type="Script" uid="uid://c7mjvjcnyj37v" path="res://addons/geo_render/shapes/geo_sphere.gd" id="4_sphere"]
 
 [sub_resource type="Resource" id="Resource_ball"]
 resource_name = "cannonball"

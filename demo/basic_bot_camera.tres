@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="GeoCamera" format=3 uid="uid://csitumcoixtgy"]
 
-[ext_resource type="Script" uid="uid://bbajo2lwhj34l" path="res://geo_render/geo_camera.gd" id="1_mqy1g"]
+[ext_resource type="Script" uid="uid://bbajo2lwhj34l" path="res://addons/geo_render/geo_camera.gd" id="1_mqy1g"]
 
 [resource]
 script = ExtResource("1_mqy1g")

@@ -14,7 +14,7 @@
 // a material and the atlas texture can be batched together.
 shader_type canvas_item;
 
-#include "res://geo_render/pixel/geo_pixel_common.gdshaderinc"
+#include "res://addons/geo_render/pixel/geo_pixel_common.gdshaderinc"
 
 uniform float outline_darkening : hint_range(0.0, 1.0) = 0.5;
 uniform bool outline_creases = true;
