@@ -130,6 +130,7 @@ func setup(owner_editor: Object, title: String, view_elevation: float,
 	set_pixelated(pixelated)
 	set_angle(view_elevation, view_rotation)
 	resized.connect(_layout_figure)
+	mouse_entered.connect(_on_mouse_entered)
 
 
 func set_shape(shape: GeoShape) -> void:
@@ -169,6 +170,16 @@ func set_angle(new_elevation: float, new_rotation: Vector3) -> void:
 	if orbit:
 		_title.text = "3D  (%d°, %d°)" % [roundi(model_rotation_degrees.y), roundi(elevation)]
 	invalidate()
+
+
+# Like the 2D editor, take keyboard focus when the mouse comes in, so the arrow
+# keys move the selection here. Not while text is being typed elsewhere (e.g.
+# renaming a shape in the tree, or a field in the Inspector).
+func _on_mouse_entered() -> void:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is LineEdit or focused is TextEdit:
+		return
+	grab_focus()
 
 
 ## Call when the shapes change.
