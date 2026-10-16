@@ -26,7 +26,7 @@ top_rounding = 10.0
 name = &"foot_left"
 color = Color(0.03529412, 0.39607844, 0.39215687, 1)
 glued = true
-position = Vector3(-13, 16, -0.5)
+position = Vector3(-13, 16, 1)
 
 [sub_resource type="Resource" id="Resource_ljlpa"]
 resource_name = "leg_left"
@@ -58,13 +58,13 @@ top_rounding = 10.0
 name = &"foot_right"
 color = Color(0.03529412, 0.39607844, 0.39215687, 1)
 glued = true
-position = Vector3(13, 16, -0.5)
+position = Vector3(13, 16, 1)
 
 [sub_resource type="Resource" id="Resource_1vpco"]
 resource_name = "leg_right"
 script = ExtResource("3_fdcbt")
 end = Vector3(13, 8, 3)
-bend = Vector3(13.5, -8, 0)
+bend = Vector3(8, -8, 0)
 thickness = 6.0
 name = &"leg_right"
 color = Color(0.13725491, 0.21568628, 0.23137255, 1)
