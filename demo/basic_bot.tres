@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://dghurmq0mmjfl" path="res://addons/geo_render/shapes/geo_panel.gd" id="4_imki3"]
 [ext_resource type="Script" uid="uid://dtsled3me3lsf" path="res://addons/geo_render/shapes/geo_cylinder.gd" id="5_bbam3"]
 [ext_resource type="Script" uid="uid://di5xu80x5ybwh" path="res://addons/geo_render/shapes/geo_group.gd" id="6_o34go"]
+[ext_resource type="AnimationLibrary" uid="uid://cglvafya7x53n" path="res://demo/basic_bot_animations.tres" id="7_anims"]
 
 [sub_resource type="Resource" id="Resource_dbj5h"]
 resource_name = "foot_left_block"
@@ -164,3 +165,4 @@ resource_name = "BasicBot"
 script = ExtResource("6_o34go")
 name = &"BasicBot"
 children = Array[ExtResource("1_sukwn")]([SubResource("Resource_ljlpa"), SubResource("Resource_1vpco"), SubResource("Resource_ga4x2")])
+animations = ExtResource("7_anims")

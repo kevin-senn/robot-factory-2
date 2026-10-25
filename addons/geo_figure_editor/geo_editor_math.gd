@@ -9,25 +9,35 @@ const _EULER_ORDER := EULER_ORDER_YXZ # GeoShape.rotation_degrees' order.
 
 
 ## Each shape's transform into model space, built like GeoFigure builds its
-## pose (but from the shapes' own values, not a figure's overrides).
-static func model_transforms(model: GeoCompiledModel) -> Array[Transform3D]:
+## pose. Fields come from values(shape, field) if given (e.g. to use a figure's
+## animated pose), else from the shapes themselves.
+static func model_transforms(model: GeoCompiledModel,
+		values := Callable()) -> Array[Transform3D]:
 	var result: Array[Transform3D] = []
 	result.resize(model.shapes.size())
 	for i in model.shapes.size():
 		var shape := model.shapes[i]
-		var local := GeoShape.make_transform(shape.position, shape.rotation_degrees, shape.scale)
+		var local: Transform3D
+		if values.is_valid():
+			local = GeoShape.make_transform(values.call(shape, &"position"),
+					values.call(shape, &"rotation_degrees"), values.call(shape, &"scale"))
+		else:
+			local = GeoShape.make_transform(shape.position, shape.rotation_degrees, shape.scale)
 		var parent := model.parents[i]
 		result[i] = local if parent < 0 else result[parent] * local
 	return result
 
 
-## 1 for each shape that's hidden, by itself or by an ancestor.
-static func hidden_flags(model: GeoCompiledModel) -> PackedByteArray:
+## 1 for each shape that's hidden, by itself or by an ancestor. values is as in
+## model_transforms().
+static func hidden_flags(model: GeoCompiledModel, values := Callable()) -> PackedByteArray:
 	var hidden := PackedByteArray()
 	hidden.resize(model.shapes.size())
 	for i in model.shapes.size():
 		var parent := model.parents[i]
-		hidden[i] = 1 if not model.shapes[i].visible or (parent >= 0 and hidden[parent] == 1) else 0
+		var visible: bool = values.call(model.shapes[i], &"visible") if values.is_valid() \
+				else model.shapes[i].visible
+		hidden[i] = 1 if not visible or (parent >= 0 and hidden[parent] == 1) else 0
 	return hidden
 
 

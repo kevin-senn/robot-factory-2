@@ -29,6 +29,8 @@ var _types: Array[Dictionary] = []
 var _updating := false
 var _placeholder_icon: Texture2D
 var _class_icons: Dictionary[StringName, Texture2D] = {}
+# Buttons that change the tree's structure (disabled while animating).
+var _structure_buttons: Array[BaseButton] = []
 
 
 func _init() -> void:
@@ -40,6 +42,7 @@ func _init() -> void:
 	_add_menu.about_to_popup.connect(_fill_add_menu)
 	_add_menu.get_popup().id_pressed.connect(_on_add_pressed)
 	bar.add_child(_add_menu)
+	_structure_buttons.append(_add_menu)
 	_add_button(bar, "Duplicate", "Duplicate the selected shapes (Ctrl+D).",
 			func() -> void: editor.duplicate_selection())
 	_add_button(bar, "Delete", "Delete the selected shapes (Delete).",
@@ -93,6 +96,13 @@ func update_items() -> void:
 		_update_item(_items[shape], shape)
 
 
+## Disables changing the tree in animation mode (and refreshes the rows).
+func update_animating() -> void:
+	for button in _structure_buttons:
+		button.disabled = editor.animating
+	update_items()
+
+
 ## Selects the rows of the editor's selected shapes.
 func sync_selection() -> void:
 	_updating = true
@@ -118,14 +128,16 @@ func _update_item(item: TreeItem, shape: GeoShape) -> void:
 	item.set_text(0, String(shape.name) if shape.name else "(%s)" % type_name.trim_prefix("Geo"))
 	item.set_tooltip_text(0, "%s (%s)" % [shape.name, type_name])
 	item.set_icon(0, _type_icon(type_name))
-	item.set_custom_color(0, Color(1.0, 1.0, 1.0, 1.0 if shape.visible else 0.45))
+	var visible: bool = editor.field_value(shape, &"visible")
+	item.set_custom_color(0, Color(1.0, 1.0, 1.0, 1.0 if visible else 0.45))
 	if item.get_button_count(0) == 0:
 		item.add_button(0, _icon(&"GuiVisibilityVisible"), _BUTTON_VISIBLE)
 		item.add_button(0, _icon(&"Pin"), _BUTTON_GLUED)
 	item.set_button(0, _BUTTON_VISIBLE, _icon(
-			&"GuiVisibilityVisible" if shape.visible else &"GuiVisibilityHidden"))
+			&"GuiVisibilityVisible" if visible else &"GuiVisibilityHidden"))
 	item.set_button_tooltip_text(0, _BUTTON_VISIBLE,
-			"Visible. Click to hide." if shape.visible else "Hidden. Click to show.")
+			"Visible. Click to hide." if visible else "Hidden. Click to show.")
+	item.set_button_disabled(0, _BUTTON_GLUED, editor.animating)
 	item.set_button_color(0, _BUTTON_GLUED, Color(1.0, 1.0, 1.0, 1.0 if shape.glued else 0.25))
 	item.set_button_tooltip_text(0, _BUTTON_GLUED,
 			"Glued to its parent when the figure explodes. Click to unglue." if shape.glued
@@ -195,6 +207,7 @@ func _add_button(bar: HBoxContainer, text: String, tooltip: String, action: Call
 	button.tooltip_text = tooltip
 	button.pressed.connect(action)
 	bar.add_child(button)
+	_structure_buttons.append(button)
 
 
 func _fill_add_menu() -> void:
@@ -231,11 +244,13 @@ func _on_button_clicked(item: TreeItem, _column: int, id: int, mouse_button: int
 		return
 	var shape: GeoShape = item.get_metadata(0)
 	var property := &"visible" if id == _BUTTON_VISIBLE else &"glued"
-	var value: bool = shape.get(property)
+	var value: bool = editor.field_value(shape, property)
 	editor.commit("Toggle %s" % property, [[shape, property, value, not value]], true)
 
 
 func _start_rename() -> void:
+	if editor.animating:
+		return
 	var item := tree.get_selected()
 	if not item:
 		return
@@ -268,12 +283,16 @@ func _on_tree_input(event: InputEvent) -> void:
 		editor.duplicate_selection()
 	elif key.keycode == KEY_F2:
 		_start_rename()
+	elif key.keycode == KEY_K and not key.is_command_or_control_pressed():
+		editor.key_pose(key.shift_pressed)
 	else:
 		return
 	tree.accept_event()
 
 
 func _get_drag_data_fw(_at_position: Vector2) -> Variant:
+	if editor.animating:
+		return null
 	var shapes: Array[GeoShape] = []
 	for shape: GeoShape in editor.top_level_selection():
 		if shape != editor.root:

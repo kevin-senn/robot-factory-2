@@ -259,8 +259,9 @@ func _ensure_cache() -> void:
 		_model_xforms.clear()
 		_hidden.clear()
 		return
-	_model_xforms = M.model_transforms(_model)
-	_hidden = M.hidden_flags(_model)
+	# Posed values in animation mode.
+	_model_xforms = M.model_transforms(_model, editor.field_value)
+	_hidden = M.hidden_flags(_model, editor.field_value)
 	var view := Transform3D(get_view_basis(), Vector3.ZERO)
 	var count := _model.shapes.size()
 	_hulls.resize(count)
@@ -447,6 +448,8 @@ func _on_key(event: InputEventKey) -> void:
 			editor.set_mode(_SCALE)
 		KEY_F when plain:
 			frame()
+		KEY_K when not event.is_command_or_control_pressed() and not event.alt_pressed:
+			editor.key_pose(event.shift_pressed)
 		KEY_DELETE:
 			editor.delete_selection()
 		KEY_D when event.is_command_or_control_pressed():
@@ -469,11 +472,16 @@ func _begin_transform(grabbed: GeoShape) -> void:
 	_ensure_cache()
 	_drag = Drag.TRANSFORM
 	_drag_targets = editor.top_level_selection()
+	if editor.animating:
+		_drag_targets.assign(_drag_targets.filter(editor.can_animate))
+		if _drag_targets.is_empty():
+			editor._show_message("Name this shape to animate it.")
 	_drag_starts.clear()
 	_drag_parent_xforms.clear()
 	for shape in _drag_targets:
-		_drag_starts.append({&"position": shape.position,
-				&"rotation_degrees": shape.rotation_degrees, &"scale": shape.scale})
+		_drag_starts.append({&"position": editor.field_value(shape, &"position"),
+				&"rotation_degrees": editor.field_value(shape, &"rotation_degrees"),
+				&"scale": editor.field_value(shape, &"scale")})
 		_drag_parent_xforms.append(_parent_xform(shape))
 	_drag_pivot = _to_screen(_origins[_index_of(grabbed)])
 
@@ -493,8 +501,8 @@ func _apply_transform(event: InputEventMouseMotion) -> void:
 				moved = moved.snapped(Vector2.ONE * editor.snap_step)
 			var model_moved := view.inverse() * Vector3(moved.x, moved.y, 0.0)
 			for i in _drag_targets.size():
-				_drag_targets[i].position = M.tidy(_drag_starts[i][&"position"]
-						+ _drag_parent_xforms[i].basis.inverse() * model_moved)
+				editor.set_field(_drag_targets[i], &"position", M.tidy(_drag_starts[i][&"position"]
+						+ _drag_parent_xforms[i].basis.inverse() * model_moved))
 		_ROTATE:
 			var angle := wrapf((event.position - _drag_pivot).angle()
 					- (_press_position - _drag_pivot).angle(), -PI, PI)
@@ -504,8 +512,8 @@ func _apply_transform(event: InputEventMouseMotion) -> void:
 			# camera (since y points down).
 			var axis := view.inverse() * Vector3.BACK
 			for i in _drag_targets.size():
-				_drag_targets[i].rotation_degrees = M.rotate_about_axis(
-						_drag_starts[i][&"rotation_degrees"], _drag_parent_xforms[i].basis, axis, angle)
+				editor.set_field(_drag_targets[i], &"rotation_degrees", M.rotate_about_axis(
+						_drag_starts[i][&"rotation_degrees"], _drag_parent_xforms[i].basis, axis, angle))
 		_SCALE:
 			var from := _press_position - _drag_pivot
 			var to := event.position - _drag_pivot
@@ -527,7 +535,7 @@ func _apply_transform(event: InputEventMouseMotion) -> void:
 						new_scale[y_axis] = start[y_axis] * to.y / from.y
 				if snap:
 					new_scale = new_scale.snapped(Vector3.ONE * _SCALE_SNAP)
-				_drag_targets[i].scale = M.tidy(new_scale.max(Vector3.ZERO))
+				editor.set_field(_drag_targets[i], &"scale", M.tidy(new_scale.max(Vector3.ZERO)))
 
 
 # The axis (column) of basis whose direction has the largest screen_component.
@@ -545,7 +553,7 @@ func _commit_transform() -> void:
 	for i in _drag_targets.size():
 		for property: StringName in _drag_starts[i]:
 			var old_value: Vector3 = _drag_starts[i][property]
-			var new_value: Vector3 = _drag_targets[i].get(property)
+			var new_value: Vector3 = editor.field_value(_drag_targets[i], property)
 			if old_value != new_value:
 				changes.append([_drag_targets[i], property, old_value, new_value])
 	var action: String = ["Move", "Rotate", "Scale"][editor.mode]
@@ -556,7 +564,7 @@ func _cancel_drag() -> void:
 	if _drag == Drag.TRANSFORM:
 		for i in _drag_targets.size():
 			for property: StringName in _drag_starts[i]:
-				_drag_targets[i].set(property, _drag_starts[i][property])
+				editor.set_field(_drag_targets[i], property, _drag_starts[i][property])
 	_drag = Drag.NONE
 	_overlay.queue_redraw()
 
@@ -568,9 +576,9 @@ func _nudge(screen_units: Vector2) -> void:
 	var model_moved := get_view_basis().inverse() * Vector3(screen_units.x, screen_units.y, 0.0)
 	var changes := []
 	for shape: GeoShape in editor.top_level_selection():
-		var new_position := M.tidy(shape.position
-				+ _parent_xform(shape).basis.inverse() * model_moved)
-		changes.append([shape, &"position", shape.position, new_position])
+		var old_position: Vector3 = editor.field_value(shape, &"position")
+		var new_position := M.tidy(old_position + _parent_xform(shape).basis.inverse() * model_moved)
+		changes.append([shape, &"position", old_position, new_position])
 	editor.commit("Nudge shapes", changes, true)
 
 

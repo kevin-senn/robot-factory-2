@@ -52,7 +52,7 @@ func _handles(object: Object) -> bool:
 func _edit(object: Object) -> void:
 	if object is GeoFigure:
 		if object.shape:
-			_editor.set_root(object.shape)
+			_editor.set_root(object.shape, object)
 	elif object is GeoShape:
 		if _editor.contains_shape(object):
 			_editor.select([object], false)
@@ -63,7 +63,7 @@ func _edit(object: Object) -> void:
 func _on_selection_changed() -> void:
 	var nodes := EditorInterface.get_selection().get_selected_nodes()
 	if nodes.size() == 1 and nodes[0] is GeoFigure and nodes[0].shape:
-		_editor.set_root(nodes[0].shape)
+		_editor.set_root(nodes[0].shape, nodes[0])
 
 
 func _save_external_data() -> void:
@@ -72,5 +72,5 @@ func _save_external_data() -> void:
 
 func _get_unsaved_status(for_scene: String) -> String:
 	if for_scene.is_empty() and _editor.has_unsaved_changes():
-		return "Save changes to the edited GeoFigure shapes before closing?"
+		return "Save changes to the edited GeoFigure shapes and animations before closing?"
 	return ""

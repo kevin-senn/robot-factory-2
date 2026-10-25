@@ -90,6 +90,15 @@ var scale := Vector3.ONE:
 				child.changed.connect(_changed)
 		_changed()
 
+## Animations for figures that draw this shape (normally only set on a root
+## shape). Play them with an AnimationPlayer that's a child of the GeoFigure,
+## using this library: its tracks are relative to the figure, e.g.
+## ".:shapes/antenna/rotation_degrees:z". Duplicating the shape shares the
+## library rather than copying it.
+@export_custom(PROPERTY_HINT_RESOURCE_TYPE, "AnimationLibrary",
+		PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_NEVER_DUPLICATE)
+var animations: AnimationLibrary
+
 var _geometry: GeoGeometry
 var _compiled: GeoCompiledModel
 

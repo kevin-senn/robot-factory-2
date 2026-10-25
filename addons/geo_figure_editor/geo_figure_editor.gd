@@ -5,6 +5,12 @@ extends VBoxContainer
 ##
 ## Edits go through the editor's undo history. Without a plugin (e.g. when
 ## run as a test), they apply directly and nothing is saved.
+##
+## In animation mode (for a GeoFigure in a scene), the views show the figure's
+## current pose, and posing shapes overrides their fields on the figure (its
+## "shapes/<name>/<field>" properties) instead of changing the shapes. Key adds
+## the posed fields as keyframes to the animation picked in the Animation panel,
+## and every posed field gets a RESET key with the shape's own value.
 
 signal selection_changed
 
@@ -12,6 +18,9 @@ const M := preload("res://addons/geo_figure_editor/geo_editor_math.gd")
 const View := preload("res://addons/geo_figure_editor/geo_editor_view.gd")
 const ShapeTree := preload("res://addons/geo_figure_editor/geo_shape_tree.gd")
 const MultiEdit := preload("res://addons/geo_figure_editor/geo_shape_multi_edit.gd")
+const Animator := preload("res://addons/geo_figure_editor/geo_figure_animator.gd")
+
+const _PLAYER_REFRESH_SECONDS := 0.5
 
 enum Mode { MOVE, ROTATE, SCALE }
 
@@ -24,6 +33,11 @@ const _SETTING_PIXEL_SIZE := "geo_figure_editor/pixel_size"
 var plugin: EditorPlugin
 ## The root of the shape tree being edited.
 var root: GeoShape
+## The GeoFigure (in the edited scene) whose shapes are being edited, if any.
+var figure: GeoFigure
+## Whether posing shapes animates the figure (see the class description).
+var animating := false
+var animator := Animator.new()
 var selection: Array[GeoShape] = []
 var mode := Mode.MOVE
 var snap_enabled := true
@@ -53,8 +67,23 @@ var _save_as_button := Button.new()
 var _multi_edit := MultiEdit.new()
 var _structure: Array = []
 var _refresh_queued := false
-var _dirty_roots: Array[GeoShape] = []
+# Saved files (shape trees and animation libraries) with unsaved changes.
+var _dirty_files: Array[Resource] = []
 var _name_suffix := RegEx.create_from_string("_\\d+$")
+var _message := ""
+
+var _animation_bar := HBoxContainer.new()
+var _animate_button := Button.new()
+var _setup_button := Button.new()
+var _player_option := OptionButton.new()
+var _animation_label := Label.new()
+var _key_button := Button.new()
+var _reset_button := Button.new()
+var _players: Array[AnimationPlayer] = []
+var _player_refresh_time := 0.0
+var _watched_library: AnimationLibrary
+# The figure's pose as last copied to the views: property -> value.
+var _pose_cache := {}
 
 
 func _init() -> void:
@@ -62,6 +91,7 @@ func _init() -> void:
 	size_flags_vertical = SIZE_EXPAND_FILL
 	_multi_edit.editor = self
 	_build_toolbar()
+	_build_animation_bar()
 	var split := HSplitContainer.new()
 	split.size_flags_vertical = SIZE_EXPAND_FILL
 	add_child(split)
@@ -180,6 +210,45 @@ func _build_toolbar() -> void:
 	bar.add_child(_save_as_button)
 
 
+# The second toolbar row, shown when editing a GeoFigure in a scene.
+func _build_animation_bar() -> void:
+	add_child(_animation_bar)
+	_animation_bar.visible = false
+	_animate_button.text = "Animate"
+	_animate_button.toggle_mode = true
+	_animate_button.focus_mode = FOCUS_NONE
+	_animate_button.tooltip_text = ("Pose the figure for its animations: posing shapes changes"
+			+ " the figure, not the shapes, and Key saves the pose as keyframes.\nTurning it off"
+			+ " applies RESET.")
+	_animate_button.toggled.connect(set_animating)
+	_animation_bar.add_child(_animate_button)
+	_setup_button.text = "Set Up Animation"
+	_setup_button.focus_mode = FOCUS_NONE
+	_setup_button.tooltip_text = ("Give the shape an animation library (saved beside its file),"
+			+ " and the figure a child AnimationPlayer that plays it.")
+	_setup_button.pressed.connect(setup_animation)
+	_animation_bar.add_child(_setup_button)
+	_player_option.focus_mode = FOCUS_NONE
+	_player_option.tooltip_text = "The AnimationPlayer whose animations are edited."
+	_player_option.item_selected.connect(func(index: int) -> void:
+		_set_player(_players[index]))
+	_animation_bar.add_child(_player_option)
+	_key_button.text = "Key (K)"
+	_key_button.focus_mode = FOCUS_NONE
+	_key_button.tooltip_text = ("Add keyframes at the Animation panel's time for the posed"
+			+ " fields.\nShift (or Shift+K): key every position, rotation and scale axis of the"
+			+ " selected shapes.")
+	_key_button.pressed.connect(func() -> void: key_pose(Input.is_key_pressed(KEY_SHIFT)))
+	_animation_bar.add_child(_key_button)
+	_reset_button.text = "Reset"
+	_reset_button.focus_mode = FOCUS_NONE
+	_reset_button.tooltip_text = "Apply the RESET animation, returning the figure to its rest pose."
+	_reset_button.pressed.connect(apply_reset)
+	_animation_bar.add_child(_reset_button)
+	_animation_label.add_theme_color_override(&"font_color", Color(1.0, 1.0, 1.0, 0.7))
+	_animation_bar.add_child(_animation_label)
+
+
 ## Loads the toolbar settings from the editor settings. The plugin calls this
 ## after setting plugin.
 func load_settings() -> void:
@@ -206,21 +275,301 @@ func _save_setting(key: String, value: Variant) -> void:
 		EditorInterface.get_editor_settings().set_setting(key, value)
 
 
-## Edits the shape tree rooted at shape.
-func set_root(shape: GeoShape) -> void:
-	if shape == root:
+## Edits the shape tree rooted at shape: the shape of source_figure (a node in
+## the edited scene), if given.
+func set_root(shape: GeoShape, source_figure: GeoFigure = null) -> void:
+	if shape == root and source_figure == figure:
 		return
-	if root and root.changed.is_connected(_on_root_changed):
-		root.changed.disconnect(_on_root_changed)
-	root = shape
-	if root:
-		root.changed.connect(_on_root_changed)
-	selection.clear()
-	_structure.clear()
+	if animating:
+		set_animating(false)
+	figure = source_figure
+	animator.figure = figure
+	_refresh_players()
+	if shape != root:
+		if root and root.changed.is_connected(_on_root_changed):
+			root.changed.disconnect(_on_root_changed)
+		root = shape
+		if root:
+			root.changed.connect(_on_root_changed)
+		selection.clear()
+		_structure.clear()
+		for view in views:
+			view.set_shape(root)
+		_refresh()
+		_selection_updated(false)
+	_update_animation_bar()
+
+
+func _process(delta: float) -> void:
+	if figure and not is_instance_valid(figure):
+		set_root(null) # The scene was closed.
+		return
+	if not figure or not is_visible_in_tree():
+		return
+	_player_refresh_time -= delta
+	if _player_refresh_time <= 0.0:
+		_player_refresh_time = _PLAYER_REFRESH_SECONDS
+		_refresh_players()
+		_update_animation_bar()
+	if animating:
+		if animator.poll():
+			_update_animation_bar()
+		_sync_pose()
+
+
+## Turns animation mode on or off. Turning it off applies RESET.
+func set_animating(on: bool) -> void:
+	if on == animating or (on and not (figure and animator.player and root)):
+		_animate_button.set_pressed_no_signal(animating)
+		return
+	if not on:
+		apply_reset()
+	animating = on
+	animator.changed.clear()
+	_pose_cache.clear()
 	for view in views:
-		view.set_shape(root)
-	_refresh()
-	_selection_updated(false)
+		view.figure.clear_shape_overrides()
+		view.invalidate()
+	_sync_pose()
+	_message = ""
+	shape_tree.update_animating()
+	_selection_updated()
+	_update_animation_bar()
+	_update_status()
+
+
+## A shape's field as shown: the figure's (animated) value in animation mode,
+## else the shape's own.
+func field_value(shape: GeoShape, field: StringName) -> Variant:
+	if animating and can_animate(shape):
+		return figure.get(_shape_property(shape, field))
+	return shape.get(field)
+
+
+## Sets a shape's field without an undo action (e.g. while dragging): on the
+## figure in animation mode, else on the shape.
+func set_field(shape: GeoShape, field: StringName, value: Variant) -> void:
+	if not animating:
+		shape.set(field, value)
+	elif can_animate(shape) and field in Animator.FIELDS:
+		figure.set(_shape_property(shape, field), value)
+		_sync_pose()
+
+
+## Whether figures can override (and so animate) shape's fields: it needs a
+## name no other shape has.
+func can_animate(shape: GeoShape) -> bool:
+	if not root or not shape or not shape.name:
+		return false
+	var model := root.get_compiled()
+	var index: int = model.shape_indices.get(shape.name, -1)
+	return index >= 0 and model.shapes[index] == shape
+
+
+## Keys the posed fields (or with whole_selection, every position, rotation
+## and scale axis of the selected shapes) at the Animation panel's time.
+func key_pose(whole_selection := false) -> void:
+	if not animating:
+		return
+	if not animator.current_animation():
+		_show_message("Pick an animation in the Animation panel first.")
+		return
+	var entries := Animator.pose_entries(selection) if whole_selection \
+			else animator.changed.duplicate()
+	entries = entries.filter(func(entry: Array) -> bool: return can_animate(entry[0]))
+	if entries.is_empty():
+		_show_message("Nothing to key: pose some shapes first (Shift+K keys the selection).")
+		return
+	commit("Key pose", [], true, animator.key_operations(entries, field_value))
+	animator.changed.clear()
+	_show_message("")
+	_update_animation_bar()
+
+
+## Applies the player's RESET animation, as one undo action.
+func apply_reset() -> void:
+	commit("Reset pose", animator.reset_changes(), true)
+	animator.changed.clear()
+	_update_animation_bar()
+
+
+## Gives the shape an animation library (saved beside its file) and the figure
+## a child AnimationPlayer using it, as one undo action.
+func setup_animation() -> void:
+	if not figure or not root:
+		return
+	if animating:
+		set_animating(false)
+	var child_player: AnimationPlayer = null
+	for child in figure.get_children():
+		if child is AnimationPlayer:
+			child_player = child
+			break
+	var changes := []
+	var operations := []
+	var library := root.animations
+	if not library:
+		if child_player and child_player.has_animation_library(&""):
+			library = child_player.get_animation_library(&"")
+		else:
+			library = AnimationLibrary.new()
+			var reset := Animation.new()
+			reset.length = 0.001
+			library.add_animation(Animator.RESET, reset)
+		if _is_saved_to_file(root) and not _is_saved_to_file(library):
+			var path := _unused_path(root.resource_path.get_basename() + "_animations", "tres")
+			var error := ResourceSaver.save(library, path)
+			if error != OK:
+				push_error("Couldn't save %s: %s" % [path, error_string(error)])
+				return
+			library.take_over_path(path)
+			if plugin:
+				EditorInterface.get_resource_filesystem().update_file(path)
+		changes.append([root, &"animations", null, library])
+	if not child_player:
+		var new_player := AnimationPlayer.new()
+		new_player.name = &"AnimationPlayer"
+		new_player.add_animation_library(&"", library)
+		operations.append([_add_player.bind(new_player), figure.remove_child.bind(new_player),
+				new_player])
+	elif not child_player.has_animation_library(&""):
+		operations.append([child_player.add_animation_library.bind(&"", library),
+				child_player.remove_animation_library.bind(&"")])
+	commit("Set up animation", changes, true, operations)
+	# Setting animations doesn't emit changed (it doesn't affect drawing).
+	if not changes.is_empty() and _is_saved_to_file(root) and not _dirty_files.has(root):
+		_dirty_files.append(root)
+	_watch_library()
+	_refresh_players()
+	_update_animation_bar()
+
+
+func _add_player(new_player: AnimationPlayer) -> void:
+	figure.add_child(new_player, true)
+	var tree := figure.get_tree()
+	var scene_root := tree.edited_scene_root if tree else null
+	new_player.owner = scene_root if scene_root and scene_root != new_player else figure
+
+
+func _unused_path(base: String, extension: String) -> String:
+	var path := "%s.%s" % [base, extension]
+	var n := 2
+	while ResourceLoader.exists(path):
+		path = "%s_%d.%s" % [base, n, extension]
+		n += 1
+	return path
+
+
+func _shape_property(shape: GeoShape, field: StringName) -> StringName:
+	return StringName("shapes/%s/%s" % [shape.name, field])
+
+
+# Copies the figure's pose to the views' figures, if it changed.
+func _sync_pose() -> void:
+	if not animating or not root or not is_instance_valid(figure):
+		return
+	var model := root.get_compiled()
+	var changed := false
+	for shape_name: StringName in model.shape_indices:
+		for field in Animator.FIELDS:
+			var property := StringName("shapes/%s/%s" % [shape_name, field])
+			var value: Variant = figure.get(property)
+			if _pose_cache.has(property) and _pose_cache[property] == value:
+				continue
+			_pose_cache[property] = value
+			for view in views:
+				view.figure.set(property, value)
+			changed = true
+	if changed:
+		for view in views:
+			view.invalidate()
+		shape_tree.update_items()
+
+
+func _refresh_players() -> void:
+	var players := animator.find_players()
+	if players != _players:
+		_players = players
+		_player_option.clear()
+		for found in _players:
+			_player_option.add_item(String(figure.get_path_to(found)) if figure else String(found.name))
+	var player: AnimationPlayer = animator.player if _players.has(animator.player) \
+			else (_players[0] if not _players.is_empty() else null)
+	_set_player(player)
+
+
+func _set_player(player: AnimationPlayer) -> void:
+	if player == animator.player:
+		return
+	if animating:
+		set_animating(false)
+	animator.player = player
+	animator.changed.clear()
+	if player:
+		_player_option.select(_players.find(player))
+
+
+func _update_animation_bar() -> void:
+	_animation_bar.visible = figure != null
+	if not figure:
+		return
+	var player := animator.player
+	_setup_button.visible = root != null and (not root.animations or not _has_child_player())
+	_animate_button.disabled = not player or not root
+	_animate_button.set_pressed_no_signal(animating)
+	_player_option.visible = _players.size() > 1
+	_key_button.disabled = not animating
+	_reset_button.disabled = not animator.has_reset()
+	var text := ""
+	if not player:
+		text = "No AnimationPlayer animates this figure. Set Up Animation adds one."
+	elif animating:
+		var animation_name := animator.current_animation_name()
+		if not animation_name:
+			text = "Pick an animation in the Animation panel."
+		else:
+			text = "%s @ %.2f s" % [animation_name, animator.current_time()]
+			if not animator.changed.is_empty():
+				text += "   %d posed field%s to key" % [animator.changed.size(),
+						"" if animator.changed.size() == 1 else "s"]
+	_animation_label.text = text
+
+
+func _has_child_player() -> bool:
+	if not figure:
+		return false
+	for child in figure.get_children():
+		if child is AnimationPlayer:
+			return true
+	return false
+
+
+func _show_message(text: String) -> void:
+	_message = text
+	_update_status()
+
+
+# Watches the root's animation library for changes, so saving saves it.
+func _watch_library() -> void:
+	var library := root.animations if root else null
+	if library == _watched_library:
+		return
+	if _watched_library:
+		for signal_name in [&"animation_changed", &"animation_added", &"animation_removed",
+				&"animation_renamed"]:
+			if _watched_library.is_connected(signal_name, _on_library_changed):
+				_watched_library.disconnect(signal_name, _on_library_changed)
+	_watched_library = library
+	if library:
+		for signal_name in [&"animation_changed", &"animation_added", &"animation_removed",
+				&"animation_renamed"]:
+			library.connect(signal_name, _on_library_changed)
+
+
+func _on_library_changed(_a: Variant = null, _b: Variant = null) -> void:
+	if _is_saved_to_file(_watched_library) and not _dirty_files.has(_watched_library):
+		_dirty_files.append(_watched_library)
+		_update_status()
 
 
 func contains_shape(shape: GeoShape) -> bool:
@@ -300,22 +649,72 @@ func is_ancestor(ancestor: GeoShape, shape: GeoShape) -> bool:
 	return false
 
 
-## Applies changes, each [object, property, old value, new value], as one undo
-## action. With execute false, the new values must already be set.
-func commit(action_name: String, changes: Array, execute: bool) -> void:
-	if changes.is_empty():
+## Applies changes, each [object, property, old value, new value], plus
+## operations, each [do Callable, undo Callable, optional object to keep alive
+## while undone], as one undo action. With execute false, the changes' new
+## values must already be set (the operations still run).
+##
+## In animation mode, changes to shapes' fields go to the figure instead, and
+## RESET gets keys for them.
+func commit(action_name: String, changes: Array, execute: bool, operations := []) -> void:
+	if animating:
+		var entries := []
+		changes = _retarget(changes, entries)
+		animator.record_changes(entries)
+		operations = operations + animator.reset_operations(entries)
+	if changes.is_empty() and operations.is_empty():
 		return
 	var undo: EditorUndoRedoManager = plugin.get_undo_redo() if plugin else null
 	if not undo:
 		if execute:
 			for change: Array in changes:
 				change[0].set(change[1], change[3])
-		return
-	undo.create_action(action_name)
+		for operation: Array in operations:
+			operation[0].call()
+	else:
+		# Pose and animation changes (and setting up animation) belong to the
+		# scene's history.
+		var scene_action := figure != null and (animating or not operations.is_empty())
+		undo.create_action(action_name, UndoRedo.MERGE_DISABLE, figure if scene_action else null)
+		for change: Array in changes:
+			undo.add_do_property(change[0], change[1], change[3])
+			undo.add_undo_property(change[0], change[1], change[2])
+		for operation: Array in operations:
+			_add_method(undo, "add_do_method", operation[0])
+			_add_method(undo, "add_undo_method", operation[1])
+			if operation.size() > 2:
+				undo.add_do_reference(operation[2])
+		if not execute:
+			for operation: Array in operations:
+				operation[0].call()
+		undo.commit_action(execute)
+	if animating:
+		_sync_pose()
+		_update_animation_bar()
+
+
+func _add_method(undo: EditorUndoRedoManager, method: StringName, callable: Callable) -> void:
+	undo.callv(method, [callable.get_object(), callable.get_method()]
+			+ callable.get_bound_arguments())
+
+
+# Turns changes of shapes' fields into changes of the figure's overrides, and
+# adds the changed axes to entries. Shapes' other properties can't change.
+func _retarget(changes: Array, entries: Array) -> Array:
+	var result := []
 	for change: Array in changes:
-		undo.add_do_property(change[0], change[1], change[3])
-		undo.add_undo_property(change[0], change[1], change[2])
-	undo.commit_action(execute)
+		var shape := change[0] as GeoShape
+		if not shape:
+			result.append(change)
+		elif not change[1] in Animator.FIELDS:
+			_show_message("Only position, rotation, scale and visible can be animated.")
+		elif not can_animate(shape):
+			_show_message("Give '%s' a unique name to animate it." % shape.name if shape.name
+					else "Name this shape to animate it.")
+		else:
+			result.append([figure, _shape_property(shape, change[1]), change[2], change[3]])
+			entries.append_array(Animator.changed_entries(shape, change[1], change[2], change[3]))
+	return result
 
 
 ## Sets property on several shapes (for multi-selection editing). For vectors,
@@ -324,7 +723,7 @@ func set_on_shapes(shapes: Array[GeoShape], property: StringName, value: Variant
 		previous: Variant) -> void:
 	var changes := []
 	for shape in shapes:
-		var old_value: Variant = shape.get(property)
+		var old_value: Variant = field_value(shape, property)
 		var new_value: Variant = value
 		if value is Vector3:
 			new_value = old_value
@@ -339,7 +738,7 @@ func set_on_shapes(shapes: Array[GeoShape], property: StringName, value: Variant
 ## Adds a shape of a type from GeoEditorMath.shape_types() under the selected
 ## shape (or the root), and selects it.
 func add_shape(type: Dictionary) -> void:
-	if not root:
+	if not root or _blocked_while_animating():
 		return
 	var parent: GeoShape = selection[0] if not selection.is_empty() else root
 	var shape: GeoShape = load(type["path"]).new()
@@ -352,6 +751,8 @@ func add_shape(type: Dictionary) -> void:
 
 
 func delete_selection() -> void:
+	if _blocked_while_animating():
+		return
 	var lists := {}
 	for shape in top_level_selection():
 		var parent := parent_of(shape)
@@ -366,6 +767,8 @@ func delete_selection() -> void:
 
 ## Duplicates the selected shapes (with their children) next to the originals.
 func duplicate_selection() -> void:
+	if _blocked_while_animating():
+		return
 	var taken := _taken_names()
 	var lists := {}
 	var copies: Array[GeoShape] = []
@@ -385,6 +788,8 @@ func duplicate_selection() -> void:
 
 ## Moves the selected shapes up (offset -1) or down (1) among their siblings.
 func move_selection(offset: int) -> void:
+	if _blocked_while_animating():
+		return
 	var lists := {}
 	var shapes := top_level_selection()
 	shapes.sort_custom(func(a: GeoShape, b: GeoShape) -> bool:
@@ -410,6 +815,8 @@ func move_selection(offset: int) -> void:
 ## Moves shapes under new_parent, starting at index among its children. They
 ## keep their place on screen if reparent_keeps_place.
 func reparent_shapes(shapes: Array, new_parent: GeoShape, index: int) -> void:
+	if _blocked_while_animating():
+		return
 	var model := root.get_compiled()
 	var xforms := M.model_transforms(model)
 	var parent_xform := xforms[model.shapes.find(new_parent)]
@@ -437,6 +844,12 @@ func reparent_shapes(shapes: Array, new_parent: GeoShape, index: int) -> void:
 				if not shape.get(property).is_equal_approx(parts[property]):
 					changes.append([shape, property, shape.get(property), parts[property]])
 	commit("Reparent shapes", _children_changes(lists) + changes, true)
+
+
+func _blocked_while_animating() -> bool:
+	if animating:
+		_show_message("Turn off Animate to change the figure's shapes.")
+	return animating
 
 
 func _children_changes(lists: Dictionary) -> Array:
@@ -479,8 +892,8 @@ func _rename_unique(shape: GeoShape, taken: Dictionary) -> void:
 
 
 func _on_root_changed() -> void:
-	if _is_saved_to_file(root) and not _dirty_roots.has(root):
-		_dirty_roots.append(root)
+	if _is_saved_to_file(root) and not _dirty_files.has(root):
+		_dirty_files.append(root)
 	if not _refresh_queued:
 		_refresh_queued = true
 		_refresh.call_deferred()
@@ -488,6 +901,7 @@ func _on_root_changed() -> void:
 
 func _refresh() -> void:
 	_refresh_queued = false
+	_watch_library()
 	if not root:
 		shape_tree.rebuild()
 		_update_status()
@@ -499,6 +913,7 @@ func _refresh() -> void:
 		structure.append(model.parents[i])
 	if structure != _structure:
 		_structure = structure
+		_pose_cache.clear()
 		shape_tree.rebuild()
 	else:
 		shape_tree.update_items()
@@ -516,9 +931,11 @@ func _selection_updated(inspect := true) -> void:
 		view.queue_overlay()
 	_update_status()
 	if inspect and plugin:
-		if selection.size() == 1:
+		# In animation mode, even one shape is inspected through the proxy, which
+		# poses the figure instead of changing the shape.
+		if selection.size() == 1 and not animating:
 			EditorInterface.inspect_object(selection[0], "", true)
-		elif selection.size() > 1:
+		elif not selection.is_empty():
 			_multi_edit.shapes = selection.duplicate()
 			_multi_edit.notify_property_list_changed()
 			EditorInterface.inspect_object(_multi_edit, "", true)
@@ -527,6 +944,8 @@ func _selection_updated(inspect := true) -> void:
 
 func _update_status() -> void:
 	var problems := PackedStringArray()
+	if _message:
+		problems.append(_message)
 	if root:
 		var model := root.get_compiled()
 		problems.append_array(model.name_problems)
@@ -541,39 +960,39 @@ func _update_status() -> void:
 	if root:
 		target = root.resource_path.get_file() if saved else "%s (%s)" % [root.name,
 				"in a scene" if root.resource_path else "unsaved"]
-		if _dirty_roots.has(root):
+		if _dirty_files.has(root) or (root.animations and _dirty_files.has(root.animations)):
 			target += " (*)"
 		if selection.size() > 1:
 			target = "%d selected   %s" % [selection.size(), target]
 	_target_label.text = target
-	_save_button.disabled = not plugin or _dirty_roots.is_empty()
-	_save_button.tooltip_text = "Save the figure's file (Ctrl+S also saves it)." if saved \
-			else "Shapes inside a scene are saved with the scene."
+	_save_button.disabled = not plugin or _dirty_files.is_empty()
+	_save_button.tooltip_text = "Save the figure's file and its animations (Ctrl+S also saves them)." \
+			if saved else "Shapes inside a scene are saved with the scene."
 	_new_button.disabled = not plugin
 	_load_button.disabled = not plugin
 	_save_as_button.disabled = not plugin or not root
 
 
-## Saves edited figure files.
+## Saves edited figure files and animation libraries.
 func save_changes() -> void:
-	for shape in _dirty_roots:
-		if _is_saved_to_file(shape):
-			var error := ResourceSaver.save(shape)
+	for resource in _dirty_files:
+		if _is_saved_to_file(resource):
+			var error := ResourceSaver.save(resource)
 			if error != OK:
-				push_error("Couldn't save %s: %s" % [shape.resource_path, error_string(error)])
+				push_error("Couldn't save %s: %s" % [resource.resource_path, error_string(error)])
 			elif plugin:
-				EditorInterface.get_resource_filesystem().update_file(shape.resource_path)
-	_dirty_roots.clear()
+				EditorInterface.get_resource_filesystem().update_file(resource.resource_path)
+	_dirty_files.clear()
 	_update_status()
 
 
 func has_unsaved_changes() -> bool:
-	return not _dirty_roots.is_empty()
+	return not _dirty_files.is_empty()
 
 
-func _is_saved_to_file(shape: GeoShape) -> bool:
-	return shape != null and shape.resource_path.begins_with("res://") \
-			and not shape.resource_path.contains("::")
+func _is_saved_to_file(resource: Resource) -> bool:
+	return resource != null and resource.resource_path.begins_with("res://") \
+			and not resource.resource_path.contains("::")
 
 
 func _on_new_pressed() -> void:

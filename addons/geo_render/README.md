@@ -27,6 +27,25 @@ editor for building shape trees.
 | `pixel/` | Pixel-art drawing: the shared atlas, lighting, and the default display shader with outlines (`geo_pixel_display.tres`). |
 | `geo_shading_example.gdshader` | An example shader for smooth (non-pixel) figures. |
 
+## Animation
+
+A GeoFigure exposes each named shape's `position`, `rotation_degrees`,
+`scale` and `visible` as properties, `shapes/<shape name>/<field>`. These
+override the shape's values for that figure only, and an AnimationPlayer can
+animate them.
+
+To share a figure's animations with every figure using its shape:
+1. Store them in an AnimationLibrary (its own `.tres` file), and set it as the
+   root shape's `animations`.
+2. Give each GeoFigure a child AnimationPlayer that uses that library.
+3. Make the tracks relative to the figure, e.g.
+   `.:shapes/antenna/rotation_degrees:z`.
+
+Duplicating a shape shares its library rather than copying it.
+
+The GeoFigure Editor sets this up for you, and can key poses into these
+animations.
+
 ## Custom shapes
 
 Extend `GeoShape` (or another shape), give the class a `class_name`, and
