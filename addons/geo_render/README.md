@@ -1,7 +1,8 @@
 # GeoRender
 
 Fake-3D figures for Godot 4 2D scenes: trees of simple 3D shapes, drawn
-smooth or as pixel art with outlines, that can be rotated, animated per part
+smooth or in a style (pixel art, cel shading, or your own), that can be rotated,
+animated per part
 and exploded.
 
 ## Using it
@@ -24,7 +25,9 @@ editor for building shape trees.
 | `geo_camera.gd`, `default_geo_camera.tres` | **GeoCamera**: elevation and pixel size, shared by figures. Edit the default to change every figure. |
 | `geo_geometry.gd`, `geo_compiled_model.gd` | Shape geometry, and shape trees flattened for drawing. |
 | `shapes/` | Built-in shapes: Box, Cylinder, Disc, Group, Line, Panel, Sphere, Triangle. |
-| `pixel/` | Pixel-art drawing: the shared atlas, lighting, and the default display shader with outlines (`geo_pixel_display.tres`). |
+| `geo_style.gd` | **GeoStyle**: how figures look (a lighting pass and a display shader). |
+| `styles/` | Built-in styles: `pixel_art.tres` (the default) and `cel.tres` (flat shading, sketchy outlines), with the cel shaders. |
+| `pixel/` | Styled drawing: the shared atlas, the animation frame cache, and the pixel art shaders. |
 | `geo_shading_example.gdshader` | An example shader for smooth (non-pixel) figures. |
 
 ## Animation
@@ -51,17 +54,17 @@ Godot's Animation panel needs an AnimationPlayer in the open scene.
 Set `animation_fps` (e.g. 12) to play animations in steps, like hand-drawn
 frames, while their keys stay smooth.
 
-Stepped, pixelated figures in game draw pre-rendered frames rather than
+Stepped, styled figures in game draw pre-rendered frames rather than
 rendering their shapes. The frames are built automatically the first time an
 animation plays, in one render, and shared by every figure with the same shape,
-animation, frame rate, `model_rotation_degrees` and camera (see
+animation, frame rate, `model_rotation_degrees`, camera and style (see
 `pixel/geo_animation_cache.gd`). They look the same as live rendering, with
 outlines and flashes, and cost a fraction as much. Figures render live instead:
 - in the editor;
 - while exploding;
 - after code overrides a shape with `set_shape_*()`, until the next `play()`
   or `stop()`;
-- when smooth or unpixelated.
+- when smooth or unstyled.
 
 Turn the cache off with `GeoAnimationCache.enabled = false`.
 
@@ -91,3 +94,27 @@ override `_build_geometry()` to add faces with `GeoGeometry.add_face()` or
 - An `@icon` on the class shows in the GeoFigure Editor.
 
 See `res://shapes/geo_hex_nut.gd` in this project for an example.
+
+## Styles
+
+A figure's `style` (a GeoStyle) sets how it looks.
+
+**How a style draws.** The shapes are first rendered into a shared atlas by the
+style's `lighting_material`, one texel per `pixel_size` units. Each texel gets
+its colour, plus a key in alpha saying which shape and surface it shows. The
+figure then draws that, scaled up, with the style's `display_material`, which
+can use the keys to find edges, e.g. for outlines.
+
+**Built-in styles:**
+- `styles/pixel_art.tres`: uses the camera's `pixel_size`.
+- `styles/cel.tres`: 0.5 units per texel, with a margin for lines drawn
+  outside the shapes. Its display shader's parameters set the line colour,
+  width, wobble and wiggle. Lines re-squiggle whenever the figure's pose
+  changes, so each animation frame gets new lines.
+
+**Writing your own style.** Copy one of these and change the shaders. A display
+shader must declare the instance uniforms GeoFigure sets: `flash_color`,
+`flash_amount` and `line_seed`.
+
+**Smooth figures.** With no style, the figure's mesh is drawn directly with its
+`material` (see `geo_shading_example.gdshader`).

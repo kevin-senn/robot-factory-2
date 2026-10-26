@@ -11,12 +11,12 @@ extends Node2D
 ## only happens within a figure; order figures against each other as you would
 ## any other CanvasItems (e.g. with y_sort_enabled on their parent).
 ##
-## With a pixel_material (the default), the figure is pixelated: its mesh is
-## drawn at one texel per art pixel into GeoPixelAtlas, lit by
-## geo_pixel_lighting.gdshader, and the figure draws that as a sprite with
-## pixel_material. See geo_pixel_display.gdshader.
+## With a style (pixel art by default; see GeoStyle), the mesh is rendered
+## into GeoPixelAtlas by the style's lighting material, one texel per
+## pixel_size units, and the figure draws that, scaled up, with the style's
+## display material, e.g. pixelated with outlines (pixel/geo_pixel_display.gdshader).
 ##
-## With no pixel_material, the mesh is drawn directly, with this node's
+## With no style, the mesh is drawn directly, with this node's
 ## material. Set a ShaderMaterial there to shade the shapes. Either way, the
 ## mesh provides, per vertex:
 ## - VERTEX: the projected position.
@@ -80,16 +80,20 @@ var model_rotation_degrees := Vector3.ZERO:
 		_requested_frames = null
 		queue_redraw()
 
-## Draws the figure pixelated, with this material (normally
-## pixel/geo_pixel_display.tres, shared by all figures).
-## If null, the figure is drawn as smooth geometry instead, with material.
-@export var pixel_material: ShaderMaterial = preload("res://addons/geo_render/pixel/geo_pixel_display.tres"):
+## How the figure looks, e.g. pixel art (styles/pixel_art.tres) or cel shading
+## (styles/cel.tres). See GeoStyle. If null, the figure is drawn as smooth
+## geometry instead, with material.
+@export var style: GeoStyle = preload("res://addons/geo_render/styles/pixel_art.tres"):
 	set(value):
-		pixel_material = value
-		queue_redraw()
+		if style and style.changed.is_connected(_on_style_changed):
+			style.changed.disconnect(_on_style_changed)
+		style = value
+		if style:
+			style.changed.connect(_on_style_changed)
+		_on_style_changed()
 
 ## The color the whole figure flashes toward (e.g. white or red when hit).
-## Needs the pixel material.
+## Needs a style.
 @export var flash_color := Color.WHITE:
 	set(value):
 		flash_color = value
@@ -194,11 +198,19 @@ var _sampled_pose: Dictionary[StringName, Dictionary] = {}
 var _sampled_animation: Animation
 var _sampled_time := -1.0
 
+# Set as the line_seed instance uniform (see GeoStyle.display_material): a
+# random base per figure, plus the cached frame, or a count of live redraws.
+var _line_seed_base := 0.0
+var _redraw_count := 0
+
 
 func _init() -> void:
-	# The setter doesn't run for the default value.
+	# The setters don't run for the default values.
 	if camera:
 		camera.changed.connect(queue_redraw)
+	if style:
+		style.changed.connect(_on_style_changed)
+	_line_seed_base = _rng.randf() * 1000.0
 
 
 func _ready() -> void:
@@ -321,7 +333,7 @@ func _update_cached_frames(redraw := true) -> void:
 # in game, pixelated, stepped, not exploding and with no shapes overridden by
 # code. Null if not (or if they're still being built).
 func _usable_cached_frames() -> GeoAnimationCache.Frames:
-	if Engine.is_editor_hint() or not GeoAnimationCache.enabled or not pixel_material \
+	if Engine.is_editor_hint() or not GeoAnimationCache.enabled or not _is_styled() \
 			or animation_fps <= 0 or _live_shapes or is_exploding() or not shape \
 			or not _player or not is_instance_valid(_player):
 		return null
@@ -391,11 +403,24 @@ func _use_residual_library(residual: bool) -> void:
 
 
 func _draw_cached_frame() -> void:
-	var pixel_size := camera.pixel_size if camera else GeoCamera.DEFAULT_PIXEL_SIZE
-	var size := _cached_frames.cell_size * pixel_size
+	var texel_size := style.get_texel_size(camera)
+	var region := _cached_frames.regions[_cached_frame]
 	RenderingServer.canvas_item_add_texture_rect_region(get_canvas_item(),
-			Rect2(-size / 2.0, -size / 2.0, size, size), _cached_frames.texture.get_rid(),
-			_cached_frames.regions[_cached_frame])
+			Rect2(-_cached_frames.origin * texel_size, region.size * texel_size),
+			_cached_frames.texture.get_rid(), region)
+	set_instance_shader_parameter(&"line_seed", _line_seed_base + _cached_frame)
+
+
+# Whether the figure is drawn with a style (through GeoPixelAtlas).
+func _is_styled() -> bool:
+	return style != null and style.lighting_material != null and style.display_material != null
+
+
+func _on_style_changed() -> void:
+	# The atlas item gets the new lighting material when it's made again.
+	_release_atlas_cell()
+	_requested_frames = null
+	queue_redraw()
 
 
 # For GeoAnimationCache: a mesh of the figure posed at each of times seconds
@@ -831,9 +856,9 @@ func _draw() -> void:
 	if _atlas_item.is_valid():
 		RenderingServer.canvas_item_clear(_atlas_item)
 		_request_atlas_update()
-	if not pixel_material:
+	if not _is_styled():
 		_release_atlas_cell()
-	var draw_material := pixel_material.get_rid() if pixel_material \
+	var draw_material := style.display_material.get_rid() if _is_styled() \
 			else material.get_rid() if material else RID()
 	if draw_material != _applied_material:
 		RenderingServer.canvas_item_set_material(get_canvas_item(), draw_material)
@@ -866,7 +891,7 @@ func _draw() -> void:
 	if reach < 0.0:
 		return
 	var modulate_color := Color(1.0, 1.0, 1.0, fade)
-	if pixel_material:
+	if _is_styled():
 		_draw_pixelated(reach, modulate_color)
 	else:
 		RenderingServer.canvas_item_add_mesh(get_canvas_item(), _mesh, Transform2D(),
@@ -993,8 +1018,8 @@ func _apply_explosion(transforms: Array[Transform3D]) -> void:
 
 # reach is how far the drawn shapes extend from the figure's origin.
 func _draw_pixelated(reach: float, modulate_color: Color) -> void:
-	var pixel_size := camera.pixel_size if camera else GeoCamera.DEFAULT_PIXEL_SIZE
-	var cell_size := GeoPixelAtlas.get_cell_size(reach / pixel_size)
+	var pixel_size := style.get_texel_size(camera)
+	var cell_size := GeoPixelAtlas.get_cell_size(reach / pixel_size + style.margin)
 	# Grow the cell right away, but only shrink it once it's far too big, so a
 	# figure that's animating near a size boundary doesn't keep reallocating.
 	if cell_size > _atlas_cell.size.x or cell_size * 4 <= _atlas_cell.size.x:
@@ -1002,8 +1027,10 @@ func _draw_pixelated(reach: float, modulate_color: Color) -> void:
 		_atlas_cell = GeoPixelAtlas.allocate(cell_size)
 		if not _atlas_cell.has_area():
 			return
-		_atlas_item = GeoPixelAtlas.create_item()
+		_atlas_item = GeoPixelAtlas.create_item(style.lighting_material)
 		RenderingServer.canvas_item_set_visible(_atlas_item, is_visible_in_tree())
+	_redraw_count += 1
+	set_instance_shader_parameter(&"line_seed", _line_seed_base + _redraw_count)
 
 	# Draw the mesh into the cell, with the figure's origin at the cell's center
 	# and one texel per art pixel.

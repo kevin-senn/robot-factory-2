@@ -1,12 +1,12 @@
 @tool
 class_name GeoPixelAtlas
 extends Object
-## The low-resolution render target shared by every pixelated GeoFigure.
+## The render target shared by every styled GeoFigure (see GeoStyle).
 ##
-## Each pixelated figure has a square cell in the atlas, where its mesh is drawn
-## (unrotated, at one texel per art pixel) by the lighting shader. The figure
-## then draws its cell as a single textured rect, scaled up by its pixel size,
-## with the pixel display shader. Because the rect is drawn in the
+## Each styled figure has a square cell in the atlas, where its mesh is drawn
+## (unrotated, at one texel per pixel_size units) by its style's lighting
+## material. The figure then draws its cell as a single textured rect, scaled
+## up, with its style's display material. Because the rect is drawn in the
 ## figure's own space, its pixels rotate and scale with the figure, like a
 ## sprite.
 ##
@@ -21,7 +21,6 @@ extends Object
 const WIDTH := 2048
 const MAX_HEIGHT := 16384
 const MIN_CELL_SIZE := 16
-const LIGHTING_MATERIAL: ShaderMaterial = preload("res://addons/geo_render/pixel/geo_pixel_lighting.tres")
 
 static var _viewport: RID
 static var _canvas: RID
@@ -88,14 +87,14 @@ static func release(cell: Rect2i) -> void:
 		request_update()
 
 
-## Creates a canvas item that draws into the atlas with the lighting shader.
-## Free it with RenderingServer.free_rid().
-static func create_item() -> RID:
+## Creates a canvas item that draws into the atlas with lighting_material (a
+## GeoStyle's). Free it with RenderingServer.free_rid().
+static func create_item(lighting_material: ShaderMaterial) -> RID:
 	if not _viewport:
 		_create()
 	var item := RenderingServer.canvas_item_create()
 	RenderingServer.canvas_item_set_parent(item, _canvas)
-	RenderingServer.canvas_item_set_material(item, LIGHTING_MATERIAL.get_rid())
+	RenderingServer.canvas_item_set_material(item, lighting_material.get_rid())
 	return item
 
 

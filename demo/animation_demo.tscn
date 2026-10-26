@@ -10,6 +10,7 @@
 [node name="BasicBot" type="Node2D" parent="." unique_id=1093089823]
 instance_shader_parameters/flash_amount = 0.0
 instance_shader_parameters/flash_color = Color(1, 1, 1, 1)
+instance_shader_parameters/line_seed = 8959.669511318207
 position = Vector2(576, 470)
 scale = Vector2(4, 4)
 script = ExtResource("1_8xwf0")
@@ -17,6 +18,7 @@ shape = ExtResource("2_fa4w0")
 camera = ExtResource("3_fa4w0")
 model_rotation_degrees = Vector3(0, -45, 0)
 autoplay = &"bouncy_idle"
+animation_fps = 12
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="BasicBot" unique_id=1244780172]
 libraries/ = ExtResource("4_anims")

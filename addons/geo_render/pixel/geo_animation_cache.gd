@@ -1,34 +1,37 @@
 @tool
 class_name GeoAnimationCache
 extends Object
-## Pre-rendered frames of figures' animations, so pixelated figures playing
-## stepped animations (GeoFigure.animation_fps) can draw a cached frame instead
-## of transforming, sorting and rendering their shapes every step.
+## Pre-rendered frames of figures' animations, so styled figures (see GeoStyle)
+## playing stepped animations (GeoFigure.animation_fps) can draw a cached frame
+## instead of transforming, sorting and rendering their shapes every step.
 ##
-## A frame is the figure's GeoPixelAtlas cell as rendered (lit colors, plus the
-## shape and surface keys in alpha), so drawing it with the figure's
-## pixel_material looks exactly like the live figure: outlines, flashes and
-## modulate still work.
+## A frame is the figure's GeoPixelAtlas cell as rendered by its style's
+## lighting material (colors, plus the shape and surface keys in alpha), so
+## drawing it with the style's display material looks exactly like the live
+## figure: outlines, flashes and modulate still work.
 ##
 ## Frames are built the first time they're needed, in game only, and shared by
-## every figure with the same shape, animation, frame rate, model rotation and
-## camera. Building takes a single render: every frame is drawn into the atlas
-## at once, then the atlas is read back into a sprite sheet. Until then (or if
-## building fails), figures render live. Changing the shapes, the animation or
-## the camera drops the frames built from them.
+## every figure with the same shape, animation, frame rate, model rotation,
+## camera and style. Building takes a single render: every frame is drawn into
+## the atlas at once, then the atlas is read back into a sprite sheet, cropped to
+## what the frames show (plus the style's margin). Until then (or if building
+## fails), figures render live. Changing the shapes, the animation, the camera
+## or the style drops the frames built from them.
 
 
 ## One animation's frames, for one view of one shape.
 class Frames:
 	extends RefCounted
-	## A sprite sheet of the frames, each a square cell_size texels across.
+	## A sprite sheet of the frames, each a regions[i].size texels across.
 	var texture: Texture2D
 	var regions: Array[Rect2] = []
-	var cell_size := 0
+	## Where the figure's origin is in each frame, in texels from its corner.
+	var origin := Vector2.ZERO
 	var fps := 0
 	## Whether the frames have been built (and can be drawn).
 	var ready := false
-	## False once the shapes, animation or camera they were built from change.
+	## False once the shapes, animation, camera or style they were built from
+	## change.
 	var valid := true
 
 	## The frame to show at time seconds into the animation.
@@ -57,7 +60,7 @@ static func get_frames(figure: GeoFigure, animation: Animation, fps: int) -> Fra
 	var forget := func() -> void:
 		frames.valid = false
 		_frames.erase(key)
-	for source: Resource in [figure.shape, animation, figure.camera]:
+	for source: Resource in [figure.shape, animation, figure.camera, figure.style]:
 		if source:
 			source.changed.connect(forget, CONNECT_ONE_SHOT)
 	_build(frames, figure, animation, key)
@@ -112,19 +115,21 @@ static func frame_times(animation: Animation, fps: int) -> PackedFloat32Array:
 
 static func _key(figure: GeoFigure, animation: Animation, fps: int) -> String:
 	var camera := figure.camera
-	return "%d|%d|%d|%s|%s|%s" % [figure.shape.get_instance_id(), animation.get_instance_id(),
-			fps, figure.model_rotation_degrees,
+	var style := figure.style
+	return "%d|%d|%d|%s|%s|%s|%d|%d" % [figure.shape.get_instance_id(),
+			animation.get_instance_id(), fps, figure.model_rotation_degrees,
 			camera.elevation_degrees if camera else GeoCamera.DEFAULT_ELEVATION_DEGREES,
-			camera.pixel_size if camera else GeoCamera.DEFAULT_PIXEL_SIZE]
+			style.get_texel_size(camera), style.lighting_material.get_instance_id(), style.margin]
 
 
 static func _build(frames: Frames, figure: GeoFigure, animation: Animation, key: String) -> void:
 	var meshes: Array = figure._make_frame_meshes(animation, frame_times(animation, frames.fps))
-	var pixel_size := figure.camera.pixel_size if figure.camera else GeoCamera.DEFAULT_PIXEL_SIZE
+	var style := figure.style
+	var texel_size := style.get_texel_size(figure.camera)
 	var reach := 0.0
 	for entry: Array in meshes:
 		reach = maxf(reach, entry[1])
-	var cell_size := GeoPixelAtlas.get_cell_size(reach / pixel_size)
+	var cell_size := GeoPixelAtlas.get_cell_size(reach / texel_size + style.margin)
 
 	# Draw every frame into its own atlas cell, in one render.
 	var cells: Array[Rect2i] = []
@@ -134,9 +139,9 @@ static func _build(frames: Frames, figure: GeoFigure, animation: Animation, key:
 		cells.append(cell)
 		if not cell.has_area() or entry[1] < 0.0:
 			continue
-		var item := GeoPixelAtlas.create_item()
+		var item := GeoPixelAtlas.create_item(style.lighting_material)
 		RenderingServer.canvas_item_set_transform(item, Transform2D(
-				0.0, Vector2.ONE / pixel_size, 0.0, Vector2(cell.get_center())))
+				0.0, Vector2.ONE / texel_size, 0.0, Vector2(cell.get_center())))
 		RenderingServer.canvas_item_add_mesh(item, entry[0])
 		items.append(item)
 	var viewport := figure.get_viewport().get_viewport_rid() if figure.is_inside_tree() else RID()
@@ -148,17 +153,28 @@ static func _build(frames: Frames, figure: GeoFigure, animation: Animation, key:
 			else null
 	if atlas and not atlas.is_empty() and _frames.get(key) == frames:
 		atlas.convert(Image.FORMAT_RGBA8)
+		# Crop the frames to what any of them shows, plus room for the display
+		# shader to draw beyond the shapes and read their neighboring texels.
+		var used := Rect2i()
+		for cell in cells:
+			if cell.has_area():
+				var shown := atlas.get_region(cell).get_used_rect()
+				if shown.has_area():
+					used = shown if not used.has_area() else used.merge(shown)
+		used = used.grow(style.margin + 1).intersection(
+				Rect2i(Vector2i.ZERO, Vector2i(cell_size, cell_size)))
 		var columns := ceili(sqrt(cells.size()))
 		var rows := ceili(float(cells.size()) / columns)
-		var sheet := Image.create_empty(columns * cell_size, rows * cell_size, false,
-				Image.FORMAT_RGBA8)
+		var sheet := Image.create_empty(maxi(columns * used.size.x, 1),
+				maxi(rows * used.size.y, 1), false, Image.FORMAT_RGBA8)
 		for i in cells.size():
-			var at := Vector2i(i % columns, i / columns) * cell_size
+			var at := Vector2i(i % columns, i / columns) * used.size
 			if cells[i].has_area():
-				sheet.blit_rect(atlas, cells[i], at)
-			frames.regions.append(Rect2(at, Vector2(cell_size, cell_size)))
+				sheet.blit_rect(atlas, Rect2i(cells[i].position + used.position, used.size), at)
+			frames.regions.append(Rect2(at, used.size))
 		frames.texture = ImageTexture.create_from_image(sheet)
-		frames.cell_size = cell_size
+		# The figure's origin is at each cell's center.
+		frames.origin = Vector2(cell_size, cell_size) / 2.0 - Vector2(used.position)
 		frames.ready = true
 
 	for item in items:

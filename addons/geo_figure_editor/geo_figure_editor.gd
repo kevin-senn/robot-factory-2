@@ -21,6 +21,8 @@ const MultiEdit := preload("res://addons/geo_figure_editor/geo_shape_multi_edit.
 const Animator := preload("res://addons/geo_figure_editor/geo_figure_animator.gd")
 
 const _PLAYER_REFRESH_SECONDS := 0.5
+const _PIXEL_ART := preload("res://addons/geo_render/styles/pixel_art.tres")
+const _CEL := preload("res://addons/geo_render/styles/cel.tres")
 
 enum Mode { MOVE, ROTATE, SCALE }
 
@@ -113,10 +115,10 @@ func _init() -> void:
 	grid.size_flags_vertical = SIZE_EXPAND_FILL
 	split.add_child(grid)
 	for config: Array in [
-		["Front", 0.0, Vector3.ZERO, false, false],
-		["Side", 0.0, Vector3(0.0, -90.0, 0.0), false, false],
-		["Top", 90.0, Vector3.ZERO, false, false],
-		["3D", GeoCamera.DEFAULT_ELEVATION_DEGREES, Vector3(0.0, -45.0, 0.0), true, true],
+		["Front", 0.0, Vector3.ZERO, false, null],
+		["Side", 0.0, Vector3(0.0, -90.0, 0.0), false, null],
+		["Top", 90.0, Vector3.ZERO, false, null],
+		["3D", GeoCamera.DEFAULT_ELEVATION_DEGREES, Vector3(0.0, -45.0, 0.0), true, _PIXEL_ART],
 	]:
 		var view := View.new()
 		view.setup(self, config[0], config[1], config[2], config[3], config[4])
@@ -183,8 +185,9 @@ func _build_toolbar() -> void:
 	_pixel_size_spin.step = 0.5
 	_pixel_size_spin.allow_greater = true
 	_pixel_size_spin.value = pixel_size
-	_pixel_size_spin.tooltip_text = ("The size of each art pixel in the pixelated views, in the figure's units"
-			+ " (like GeoCamera.pixel_size). Only affects this editor's views.")
+	_pixel_size_spin.tooltip_text = ("The size of each art pixel in the views drawn with styles that use the"
+			+ " camera's pixel size (like pixel art), in the figure's units (like GeoCamera.pixel_size)."
+			+ " Only affects this editor's views.")
 	_pixel_size_spin.value_changed.connect(set_pixel_size)
 	bar.add_child(_pixel_size_spin)
 	var frame_button := Button.new()
@@ -656,6 +659,35 @@ func set_pixel_size(value: float) -> void:
 	_save_setting(_SETTING_PIXEL_SIZE, pixel_size)
 	for view in views:
 		view.set_pixel_size(pixel_size)
+
+
+## The styles views can draw with, as [name, GeoStyle or null for smooth]: the
+## built-in ones, plus (in the editor) every GeoStyle file in the project.
+func available_styles() -> Array:
+	var styles := [["Smooth", null], [style_name(_PIXEL_ART), _PIXEL_ART], [style_name(_CEL), _CEL]]
+	if plugin:
+		var paths := PackedStringArray()
+		_find_style_files(EditorInterface.get_resource_filesystem().get_filesystem(), paths)
+		for path in paths:
+			if path != _PIXEL_ART.resource_path and path != _CEL.resource_path:
+				var style := load(path) as GeoStyle
+				if style:
+					styles.append([style_name(style), style])
+	return styles
+
+
+func style_name(style: GeoStyle) -> String:
+	if not style.resource_path:
+		return "Custom style"
+	return style.resource_path.get_file().get_basename().capitalize()
+
+
+func _find_style_files(directory: EditorFileSystemDirectory, paths: PackedStringArray) -> void:
+	for i in directory.get_file_count():
+		if directory.get_file_resource_script_class(i) == &"GeoStyle":
+			paths.append(directory.get_file_path(i))
+	for i in directory.get_subdir_count():
+		_find_style_files(directory.get_subdir(i), paths)
 
 
 func frame_all() -> void:

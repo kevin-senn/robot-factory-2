@@ -23,6 +23,9 @@ uniform bool outline_creases = true;
 // instance uniforms: each figure can flash on its own without its own material.
 instance uniform vec4 flash_color : source_color = vec4(1.0);
 instance uniform float flash_amount = 0.0;
+// Set by GeoFigure for every style's display shader (see GeoStyle); pixel art
+// doesn't use it.
+instance uniform float line_seed = 0.0;
 
 varying vec4 modulate;
 

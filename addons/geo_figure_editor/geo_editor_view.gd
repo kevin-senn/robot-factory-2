@@ -49,9 +49,10 @@ var figure := GeoFigure.new()
 var _camera := GeoCamera.new()
 var _overlay := Control.new()
 var _title := Label.new()
-var _pixel_check := CheckBox.new()
+var _style_option := OptionButton.new()
+# The styles in _style_option: [name, GeoStyle, or null for smooth].
+var _styles: Array = []
 var _smooth_material := ShaderMaterial.new()
-var _pixel_material: ShaderMaterial
 var _default_elevation := 0.0
 var _default_rotation := Vector3.ZERO
 var _needs_frame := true
@@ -81,7 +82,7 @@ var _orbit_start := Vector2.ZERO
 
 
 func setup(owner_editor: Object, title: String, view_elevation: float,
-		view_rotation: Vector3, is_orbit: bool, pixelated: bool) -> void:
+		view_rotation: Vector3, is_orbit: bool, style: GeoStyle) -> void:
 	editor = owner_editor
 	orbit = is_orbit
 	elevation = view_elevation
@@ -96,7 +97,6 @@ func setup(owner_editor: Object, title: String, view_elevation: float,
 	custom_minimum_size = Vector2(160, 120)
 
 	_smooth_material.shader = _SMOOTH_SHADER
-	_pixel_material = figure.pixel_material
 	figure.camera = _camera
 	add_child(figure)
 	_overlay.mouse_filter = MOUSE_FILTER_IGNORE
@@ -111,11 +111,13 @@ func setup(owner_editor: Object, title: String, view_elevation: float,
 	_title.mouse_filter = MOUSE_FILTER_IGNORE
 	_title.add_theme_color_override(&"font_color", Color(1.0, 1.0, 1.0, 0.7))
 	header.add_child(_title)
-	_pixel_check.text = "Pixels"
-	_pixel_check.focus_mode = FOCUS_NONE
-	_pixel_check.tooltip_text = "Draw the figure pixelated, as in the game."
-	_pixel_check.toggled.connect(set_pixelated)
-	header.add_child(_pixel_check)
+	_style_option.flat = true
+	_style_option.focus_mode = FOCUS_NONE
+	_style_option.tooltip_text = ("How this view draws the figure: smooth, or with a GeoStyle (e.g."
+			+ " pixel art or cel), as in the game. Lists the project's GeoStyle files.")
+	_style_option.get_popup().about_to_popup.connect(_fill_styles)
+	_style_option.item_selected.connect(func(index: int) -> void: set_style(_styles[index][1]))
+	header.add_child(_style_option)
 	if orbit:
 		var reset := Button.new()
 		reset.text = "Reset"
@@ -126,8 +128,7 @@ func setup(owner_editor: Object, title: String, view_elevation: float,
 			set_angle(_default_elevation, _default_rotation))
 		header.add_child(reset)
 	_title.text = title
-	_pixel_check.set_pressed_no_signal(pixelated)
-	set_pixelated(pixelated)
+	set_style(style)
 	set_angle(view_elevation, view_rotation)
 	resized.connect(_layout_figure)
 	mouse_entered.connect(_on_mouse_entered)
@@ -141,25 +142,38 @@ func set_shape(shape: GeoShape) -> void:
 	_layout_figure()
 
 
-func set_pixelated(on: bool) -> void:
+## Draws the figure with style, or smooth if null.
+func set_style(style: GeoStyle) -> void:
 	# Order matters: GeoFigure applies its material when it redraws, and
 	# CanvasItem.material applies right away.
-	if on:
+	if style:
 		figure.material = null
-		figure.pixel_material = _pixel_material
+		figure.style = style
 	else:
-		figure.pixel_material = null
+		figure.style = null
 		figure.material = _smooth_material
-	_pixel_check.set_pressed_no_signal(on)
+	_fill_styles()
 
 
-## The size of each art pixel when pixelated, in the figure's units.
+func get_style() -> GeoStyle:
+	return figure.style
+
+
+func _fill_styles() -> void:
+	_styles = editor.available_styles() if editor else [["Smooth", null]]
+	if figure.style and not _styles.any(func(entry: Array) -> bool: return entry[1] == figure.style):
+		_styles.append([editor.style_name(figure.style), figure.style])
+	_style_option.clear()
+	for entry: Array in _styles:
+		_style_option.add_item(entry[0])
+		if entry[1] == figure.style:
+			_style_option.select(_style_option.item_count - 1)
+
+
+## The size of each rendered texel for styles that use the camera's (like pixel
+## art), in the figure's units.
 func set_pixel_size(value: float) -> void:
 	_camera.pixel_size = value
-
-
-func is_pixelated() -> bool:
-	return figure.pixel_material != null
 
 
 func set_angle(new_elevation: float, new_rotation: Vector3) -> void:
