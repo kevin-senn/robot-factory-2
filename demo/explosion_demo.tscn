@@ -23,16 +23,12 @@ scale = Vector2(4, 4)
 script = ExtResource("2_figure")
 shape = ExtResource("3_bot")
 camera = ExtResource("4_0e6m1")
-explosion_direction_jitter = null
-explosion_max_depth_tilt = null
 
 [node name="Cannonball" type="Node2D" parent="." unique_id=706621834]
 position = Vector2(60, 312)
 scale = Vector2(4, 4)
 script = ExtResource("2_figure")
 shape = SubResource("Resource_ball")
-explosion_direction_jitter = null
-explosion_max_depth_tilt = null
 
 [node name="SpeedSlider" type="HSlider" parent="." unique_id=713750434]
 offset_left = 20.0

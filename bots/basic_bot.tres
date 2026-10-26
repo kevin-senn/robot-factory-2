@@ -1,0 +1,168 @@
+[gd_resource type="Resource" script_class="GeoGroup" format=3 uid="uid://rxv856mqwts1"]
+
+[ext_resource type="AnimationLibrary" uid="uid://cglvafya7x53n" path="res://demo/basic_bot_animations.tres" id="1_xeowv"]
+[ext_resource type="Script" uid="uid://c7nve4tv6e6ia" path="res://addons/geo_render/geo_shape.gd" id="2_hpkho"]
+[ext_resource type="Script" uid="uid://etry2mceim7b" path="res://addons/geo_render/shapes/geo_box.gd" id="3_v8yj3"]
+[ext_resource type="Script" uid="uid://dtsled3me3lsf" path="res://addons/geo_render/shapes/geo_cylinder.gd" id="4_37www"]
+[ext_resource type="Script" uid="uid://crc88dbnsmaxp" path="res://addons/geo_render/shapes/geo_line.gd" id="5_vsgpl"]
+[ext_resource type="Script" uid="uid://dghurmq0mmjfl" path="res://addons/geo_render/shapes/geo_panel.gd" id="6_bmt5f"]
+[ext_resource type="Script" uid="uid://di5xu80x5ybwh" path="res://addons/geo_render/shapes/geo_group.gd" id="7_vsk2j"]
+
+[sub_resource type="Resource" id="Resource_xeowv"]
+resource_name = "foot_left_block"
+script = ExtResource("3_v8yj3")
+size = Vector3(18, 18, 26)
+name = &"foot_left_block"
+visible = false
+color = Color(0.03529412, 0.39607844, 0.39215687, 1)
+glued = true
+position = Vector3(-12, 16, 3)
+
+[sub_resource type="Resource" id="Resource_hpkho"]
+resource_name = "foot_left"
+script = ExtResource("4_37www")
+radius = 10.0
+height = 18.0
+top_rounding = 10.0
+name = &"foot_left"
+color = Color(0.03529412, 0.39607844, 0.39215687, 1)
+glued = true
+position = Vector3(-13, 16, 1)
+
+[sub_resource type="Resource" id="Resource_v8yj3"]
+resource_name = "leg_left"
+script = ExtResource("5_vsgpl")
+end = Vector3(-13, 8, 3)
+bend = Vector3(-8, -8, 0)
+thickness = 6.0
+name = &"leg_left"
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+position = Vector3(-17, -25, 0)
+children = Array[ExtResource("2_hpkho")]([SubResource("Resource_xeowv"), SubResource("Resource_hpkho")])
+
+[sub_resource type="Resource" id="Resource_37www"]
+resource_name = "foot_right_block"
+script = ExtResource("3_v8yj3")
+size = Vector3(18, 18, 26)
+name = &"foot_right_block"
+visible = false
+color = Color(0.03529412, 0.39607844, 0.39215687, 1)
+glued = true
+position = Vector3(12, 16, 3)
+
+[sub_resource type="Resource" id="Resource_vsgpl"]
+resource_name = "foot_right"
+script = ExtResource("4_37www")
+radius = 10.0
+height = 18.0
+top_rounding = 10.0
+name = &"foot_right"
+color = Color(0.03529412, 0.39607844, 0.39215687, 1)
+glued = true
+position = Vector3(13, 16, 1)
+
+[sub_resource type="Resource" id="Resource_bmt5f"]
+resource_name = "leg_right"
+script = ExtResource("5_vsgpl")
+end = Vector3(13, 8, 3)
+bend = Vector3(8, -8, 0)
+thickness = 6.0
+name = &"leg_right"
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+position = Vector3(17, -25, 0)
+children = Array[ExtResource("2_hpkho")]([SubResource("Resource_37www"), SubResource("Resource_vsgpl")])
+
+[sub_resource type="Resource" id="Resource_vsk2j"]
+resource_name = "panel"
+script = ExtResource("6_bmt5f")
+size = Vector2(26, 17)
+name = &"panel"
+color = Color(0.8, 0.6745098, 0.3647059, 1)
+glued = true
+position = Vector3(0, -6.5, 30.5)
+
+[sub_resource type="Resource" id="Resource_dq553"]
+resource_name = "eye_light"
+script = ExtResource("6_bmt5f")
+size = Vector2(3.4, 3.4)
+name = &"eye_light"
+color = Color(1, 0.4509804, 0.3254902, 1)
+outlined = false
+glued = true
+position = Vector3(0, 0, 0.3)
+depth_bias = 1.0
+
+[sub_resource type="Resource" id="Resource_jsddh"]
+resource_name = "eyebrow_left"
+script = ExtResource("5_vsgpl")
+end = Vector3(-7, -6.5, -1.5)
+thickness = 3.0
+name = &"eyebrow_left"
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+glued = true
+position = Vector3(0, -5.5, -0.5)
+
+[sub_resource type="Resource" id="Resource_lmy62"]
+resource_name = "eyebrow_right"
+script = ExtResource("5_vsgpl")
+end = Vector3(7, -6.5, -1.5)
+thickness = 3.0
+name = &"eyebrow_right"
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+glued = true
+position = Vector3(0, -5.5, -0.5)
+
+[sub_resource type="Resource" id="Resource_btyyo"]
+resource_name = "eye"
+script = ExtResource("6_bmt5f")
+size = Vector2(9, 9)
+name = &"eye"
+color = Color(0.13725491, 0.21568628, 0.23137255, 1)
+glued = true
+position = Vector3(0, 4, 21.376177)
+rotation_degrees = Vector3(2.7294025, 0, 0)
+children = Array[ExtResource("2_hpkho")]([SubResource("Resource_dq553"), SubResource("Resource_jsddh"), SubResource("Resource_lmy62")])
+
+[sub_resource type="Resource" id="Resource_8h43j"]
+resource_name = "antenna"
+script = ExtResource("5_vsgpl")
+end = Vector3(0, -12, -9)
+thickness = 3.0
+name = &"antenna"
+color = Color(0.24237078, 0.35951334, 0.382968, 1)
+position = Vector3(0, -13, -10)
+
+[sub_resource type="Resource" id="Resource_g4mv5"]
+resource_name = "head"
+script = ExtResource("4_37www")
+radius = 21.0
+height = 32.0
+top_rounding = 21.0
+segments = 20
+rounding_segments = 5
+name = &"head"
+color = Color(0.9607843, 0.78039217, 0.40392157, 1)
+position = Vector3(0, -41.5, 0)
+depth_bias = -0.5
+children = Array[ExtResource("2_hpkho")]([SubResource("Resource_btyyo"), SubResource("Resource_8h43j")])
+
+[sub_resource type="Resource" id="Resource_s705k"]
+resource_name = "body"
+script = ExtResource("4_37www")
+radius = 30.0
+height = 55.0
+top_rounding = 4.0
+bottom_rounding = 21.0
+segments = 24
+rounding_segments = 5
+name = &"body"
+color = Color(0.9607843, 0.78039217, 0.40392157, 1)
+position = Vector3(0, -39, 0)
+children = Array[ExtResource("2_hpkho")]([SubResource("Resource_vsk2j"), SubResource("Resource_g4mv5")])
+
+[resource]
+resource_name = "BasicBot"
+script = ExtResource("7_vsk2j")
+name = &"BasicBot"
+children = Array[ExtResource("2_hpkho")]([SubResource("Resource_v8yj3"), SubResource("Resource_bmt5f"), SubResource("Resource_s705k")])
+animations = ExtResource("1_xeowv")

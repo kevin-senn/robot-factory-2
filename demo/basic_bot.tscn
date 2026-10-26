@@ -10,9 +10,6 @@ script = ExtResource("1_3ogo4")
 figure = NodePath("BasicBot")
 
 [node name="BasicBot" type="Node2D" parent="." unique_id=9845175]
-instance_shader_parameters/flash_amount = 0.0
-instance_shader_parameters/flash_color = Color(1, 1, 1, 1)
-instance_shader_parameters/line_seed = 243.19193243980408
 position = Vector2(576, 468)
 scale = Vector2(4, 4)
 script = ExtResource("1_2pycc")

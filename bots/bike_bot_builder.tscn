@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://dc4yicitrwdom"]
+
+[ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://addons/geo_render/geo_figure.gd" id="1_rshcf"]
+[ext_resource type="Resource" uid="uid://bca3k0vugshhm" path="res://bots/bike_bot.tres" id="2_cw55c"]
+[ext_resource type="Resource" uid="uid://csitumcoixtgy" path="res://demo/basic_bot_camera.tres" id="3_aso75"]
+[ext_resource type="Resource" uid="uid://v81nlfb84bpl" path="res://addons/geo_render/styles/pixel_dither.tres" id="4_idp43"]
+[ext_resource type="AnimationLibrary" path="res://bots/bike_bot_animations.tres" id="5_anims"]
+
+[node name="BikeBotBuilder" type="Node2D" unique_id=1945249336]
+
+[node name="BikeBot" type="Node2D" parent="." unique_id=1093089823]
+instance_shader_parameters/flash_amount = 0.0
+instance_shader_parameters/flash_color = Color(1, 1, 1, 1)
+instance_shader_parameters/line_seed = 163.60620748996735
+position = Vector2(576, 470)
+scale = Vector2(4, 4)
+script = ExtResource("1_rshcf")
+shape = ExtResource("2_cw55c")
+camera = ExtResource("3_aso75")
+model_rotation_degrees = Vector3(0, -45, 0)
+style = ExtResource("4_idp43")
+autoplay = &"idle"
+animation_fps = 12
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="BikeBot" unique_id=1619042267]
+libraries/ = ExtResource("5_anims")
