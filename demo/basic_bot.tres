@@ -143,7 +143,7 @@ rounding_segments = 5
 name = &"head"
 color = Color(0.9607843, 0.78039217, 0.40392157, 1)
 position = Vector3(0, -41.5, 0)
-depth_bias = -4.0
+depth_bias = -0.5
 children = Array[ExtResource("1_sukwn")]([SubResource("Resource_l2qi8"), SubResource("Resource_n7kyh")])
 
 [sub_resource type="Resource" id="Resource_ga4x2"]

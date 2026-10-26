@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dq8x1d1n8qy7c" path="res://addons/geo_render/geo_figure.gd" id="1_8xwf0"]
 [ext_resource type="Resource" uid="uid://djq7c8f4xm23a" path="res://demo/basic_bot.tres" id="2_fa4w0"]
 [ext_resource type="Resource" uid="uid://csitumcoixtgy" path="res://demo/basic_bot_camera.tres" id="3_fa4w0"]
+[ext_resource type="Resource" path="res://addons/geo_render/styles/cel.tres" id="4_7ycn4"]
 [ext_resource type="AnimationLibrary" uid="uid://cglvafya7x53n" path="res://demo/basic_bot_animations.tres" id="4_anims"]
 
 [node name="AnimationDemo" type="Node2D" unique_id=1945249336]
@@ -10,13 +11,14 @@
 [node name="BasicBot" type="Node2D" parent="." unique_id=1093089823]
 instance_shader_parameters/flash_amount = 0.0
 instance_shader_parameters/flash_color = Color(1, 1, 1, 1)
-instance_shader_parameters/line_seed = 8959.669511318207
+instance_shader_parameters/line_seed = 13626.669511318207
 position = Vector2(576, 470)
 scale = Vector2(4, 4)
 script = ExtResource("1_8xwf0")
 shape = ExtResource("2_fa4w0")
 camera = ExtResource("3_fa4w0")
 model_rotation_degrees = Vector3(0, -45, 0)
+style = ExtResource("4_7ycn4")
 autoplay = &"bouncy_idle"
 animation_fps = 12
 
