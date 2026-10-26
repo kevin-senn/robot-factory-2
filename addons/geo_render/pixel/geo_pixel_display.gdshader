@@ -47,8 +47,10 @@ bool is_outline(int region, int neighbor_key) {
 }
 
 void fragment() {
-	// texelFetch reads exact texels, whatever the texture filter.
-	ivec2 texel = ivec2(UV / TEXTURE_PIXEL_SIZE);
+	// texelFetch reads exact texels, whatever the texture filter. The small nudge
+	// settles pixels exactly on a texel edge the same way in any texture (an
+	// atlas cell or a cached frame), despite rounding.
+	ivec2 texel = ivec2(UV / TEXTURE_PIXEL_SIZE + vec2(0.001));
 	vec4 color = texelFetch(TEXTURE, texel, 0);
 	int key = geo_decode_key(color.a);
 	if (key < 0) {

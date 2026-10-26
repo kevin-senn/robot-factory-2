@@ -55,6 +55,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_F:
 			live_fps = 0 if live_fps else 12
 			_spawn()
+		KEY_C:
+			GeoAnimationCache.enabled = not GeoAnimationCache.enabled
+			_spawn()
 		KEY_UP:
 			set_count(count * 2)
 		KEY_DOWN:
@@ -63,11 +66,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(_delta: float) -> void:
 	_stats.text = "%s: %d figures   %d FPS   update %.2f ms   draw calls %d\n%s" % [
-		"Sprites" if sprite_mode else ("Live GeoFigures at %d fps" % live_fps if live_fps
+		"Sprites" if sprite_mode else ("Live GeoFigures at %d fps%s" % [live_fps,
+				" (cached frames)" if GeoAnimationCache.enabled else " (rendered)"] if live_fps
 				else "Live GeoFigures"), _items.size(),
 		Engine.get_frames_per_second(), _update_ms,
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
-		"Space: switch mode   F: live figures smooth / 12 fps   Up/Down: count x2 / ÷2"]
+		"Space: switch mode   F: live figures smooth / 12 fps   C: frame cache on / off   Up/Down: count x2 / ÷2"]
 
 
 func _on_frame_pre_draw() -> void:

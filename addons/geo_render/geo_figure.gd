@@ -52,6 +52,7 @@ static var _property_parse_cache: Dictionary[StringName, Array] = {}
 		shape = value
 		if shape:
 			shape.changed.connect(queue_redraw)
+		_requested_frames = null
 		queue_redraw()
 		update_configuration_warnings()
 		if _owns_player:
@@ -65,6 +66,7 @@ static var _property_parse_cache: Dictionary[StringName, Array] = {}
 		if camera:
 			camera.changed.disconnect(queue_redraw)
 		camera = value
+		_requested_frames = null
 		if camera:
 			camera.changed.connect(queue_redraw)
 		queue_redraw()
@@ -75,6 +77,7 @@ static var _property_parse_cache: Dictionary[StringName, Array] = {}
 var model_rotation_degrees := Vector3.ZERO:
 	set(value):
 		model_rotation_degrees = value
+		_requested_frames = null
 		queue_redraw()
 
 ## Draws the figure pixelated, with this material (normally
@@ -110,6 +113,7 @@ var model_rotation_degrees := Vector3.ZERO:
 @export_range(0, 60, 1, "or_greater", "suffix:fps") var animation_fps := 0:
 	set(value):
 		animation_fps = maxi(value, 0)
+		_requested_frames = null
 		_update_processing()
 
 @export_group("Explosion")
@@ -173,6 +177,23 @@ var _owns_player := false
 var _player_callback_mode := AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
 var _step_time := 0.0
 
+# The cached frames drawn instead of the live shapes (see GeoAnimationCache),
+# and which one. While they're drawn, the pose (_pose) isn't kept up to date;
+# _pose_dirty says it needs rebuilding. _live_shapes is set when code overrides
+# shapes, which cached frames can't show, until the next play() or stop().
+var _cached_frames: GeoAnimationCache.Frames
+var _cached_frame := -1
+var _pose_dirty := false
+var _live_shapes := false
+# The frames last requested from GeoAnimationCache (maybe not built yet), and
+# for which animation. Requested again when the view or frame rate changes.
+var _requested_frames: GeoAnimationCache.Frames
+var _requested_animation: Animation
+# The pose sampled by _residual_pose(), and for which animation and time.
+var _sampled_pose: Dictionary[StringName, Dictionary] = {}
+var _sampled_animation: Animation
+var _sampled_time := -1.0
+
 
 func _init() -> void:
 	# The setter doesn't run for the default value.
@@ -191,12 +212,14 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if _is_stepping():
-		_step_time += delta
-		var step := 1.0 / animation_fps
-		if _step_time >= step:
-			var steps := floorf(_step_time / step)
-			_step_time -= steps * step
-			_player.advance(steps * step) # advance() applies speed_scale itself.
+		if _player.is_playing():
+			_step_time += delta
+			var step := 1.0 / animation_fps
+			if _step_time >= step:
+				var steps := floorf(_step_time / step)
+				_step_time -= steps * step
+				_player.advance(steps * step) # advance() applies speed_scale itself.
+		_update_cached_frames()
 	if _is_explosion_running():
 		_explosion_time = minf(_explosion_time + delta, explosion_duration)
 		queue_redraw()
@@ -207,7 +230,8 @@ func _process(delta: float) -> void:
 
 ## Plays an animation from shape.animations (or from a child AnimationPlayer's
 ## libraries, if the figure has one). With from_start false, an animation that's
-## already playing carries on.
+## already playing carries on. Shape fields the animation doesn't set take their
+## values from the RESET animation (the player is made deterministic).
 func play(animation_name: StringName, from_start := true) -> void:
 	var player := get_animation_player()
 	if not player or not player.has_animation(animation_name):
@@ -222,6 +246,8 @@ func play(animation_name: StringName, from_start := true) -> void:
 	elif not player.is_playing():
 		player.play()
 	_update_processing()
+	_live_shapes = false
+	_update_cached_frames()
 
 
 ## Stops the playing animation, leaving the figure posed as it is.
@@ -229,6 +255,8 @@ func stop() -> void:
 	if _player:
 		_player.stop(true)
 	_update_processing()
+	_live_shapes = false
+	_update_cached_frames()
 
 
 func is_playing() -> bool:
@@ -255,7 +283,187 @@ func get_animation_player() -> AnimationPlayer:
 		_owns_player = true
 	if _player:
 		_player_callback_mode = _player.callback_mode_process
+		if not Engine.is_editor_hint():
+			# Fields an animation doesn't set take their RESET values, rather than
+			# whatever the last animation left (which cached frames can't know).
+			_player.deterministic = true
 	return _player
+
+
+# Called before code overrides a shape: cached frames can't show that, so the
+# figure renders live until the next play() or stop().
+func _override_live() -> void:
+	if not _live_shapes:
+		_live_shapes = true
+		_update_cached_frames()
+
+
+# Switches between drawing cached frames and the live shapes, and picks the
+# frame for the animation's time. With redraw, redraws if that changed what's
+# drawn.
+func _update_cached_frames(redraw := true) -> void:
+	var frames := _usable_cached_frames()
+	var frame := frames.frame_at(_player.current_animation_position) if frames else -1
+	if frames == _cached_frames and frame == _cached_frame:
+		return
+	var was_cached := _cached_frames != null
+	_cached_frames = frames
+	_cached_frame = frame
+	if was_cached != (frames != null):
+		_use_residual_library(frames != null)
+	if not frames and _pose_dirty and _mesh_model:
+		_rebuild_pose()
+	if redraw:
+		queue_redraw()
+
+
+# The cached frames of the animation being played, if the figure can draw them:
+# in game, pixelated, stepped, not exploding and with no shapes overridden by
+# code. Null if not (or if they're still being built).
+func _usable_cached_frames() -> GeoAnimationCache.Frames:
+	if Engine.is_editor_hint() or not GeoAnimationCache.enabled or not pixel_material \
+			or animation_fps <= 0 or _live_shapes or is_exploding() or not shape \
+			or not _player or not is_instance_valid(_player):
+		return null
+	var animation := _source_animation(StringName(_player.assigned_animation))
+	if not animation:
+		return null
+	if animation != _requested_animation or not _requested_frames or not _requested_frames.valid:
+		_requested_frames = GeoAnimationCache.get_frames(self, animation, animation_fps)
+		_requested_animation = animation
+	return _requested_frames if _requested_frames.ready else null
+
+
+# The animation with the given name, as the player has it (not the residual
+# copy the figure's own player plays while drawing cached frames). Null if none.
+func _source_animation(animation_name: StringName) -> Animation:
+	if not animation_name or not _player:
+		return null
+	if _owns_player and shape and shape.animations:
+		return shape.animations.get_animation(animation_name) \
+				if shape.animations.has_animation(animation_name) else null
+	return _player.get_animation(animation_name) if _player.has_animation(animation_name) else null
+
+
+# Whether the figure's own player is playing the residual library, so nothing
+# sets the shapes' fields (see _residual_pose()).
+func _is_residual() -> bool:
+	return _cached_frames != null and _owns_player and shape != null and shape.animations != null \
+			and _player.get_animation_library(&"") != shape.animations
+
+
+# While playing the residual library, the pose the full animation would set
+# now, sampled when asked for (e.g. when code reads "shapes/..." properties).
+func _residual_pose() -> Dictionary[StringName, Dictionary]:
+	var animation := _source_animation(StringName(_player.assigned_animation))
+	var time := _player.current_animation_position
+	if animation != _sampled_animation or time != _sampled_time:
+		_sampled_animation = animation
+		_sampled_time = time
+		var reset := _source_animation(&"RESET")
+		var base: Dictionary[StringName, Dictionary] = _sample_overrides(reset, 0.0, self) \
+				if reset else {}
+		_sampled_pose = _sample_overrides(animation, time, self, base) if animation else base
+	return _sampled_pose
+
+
+# Switches the figure's own player between its full animation library and the
+# residual one (without shape tracks, see GeoAnimationCache.residual_library())
+# used while cached frames are drawn, carrying on from the same time. (A child
+# AnimationPlayer is left alone; _set() keeps its shape tracks cheap instead.)
+func _use_residual_library(residual: bool) -> void:
+	if not _owns_player or not shape or not shape.animations:
+		return
+	var library := GeoAnimationCache.residual_library(shape.animations) if residual \
+			else shape.animations
+	if _player.get_animation_library(&"") == library:
+		return
+	var animation_name := StringName(_player.assigned_animation)
+	var playing := _player.is_playing()
+	var time := _player.current_animation_position if animation_name else 0.0
+	_player.remove_animation_library(&"")
+	_player.add_animation_library(&"", library)
+	if animation_name:
+		_player.play(animation_name)
+		_player.seek(time, true)
+		if not playing:
+			_player.pause()
+
+
+func _draw_cached_frame() -> void:
+	var pixel_size := camera.pixel_size if camera else GeoCamera.DEFAULT_PIXEL_SIZE
+	var size := _cached_frames.cell_size * pixel_size
+	RenderingServer.canvas_item_add_texture_rect_region(get_canvas_item(),
+			Rect2(-size / 2.0, -size / 2.0, size, size), _cached_frames.texture.get_rid(),
+			_cached_frames.regions[_cached_frame])
+
+
+# For GeoAnimationCache: a mesh of the figure posed at each of times seconds
+# into animation (with its shapes' own values for fields it doesn't animate),
+# as [mesh RID, reach (see _update_mesh())]. Free the meshes when done.
+func _make_frame_meshes(animation: Animation, times: PackedFloat32Array) -> Array:
+	var result := []
+	var model := shape.get_compiled()
+	if model != _mesh_model:
+		_set_model(model)
+	if model.surface.is_empty():
+		return result
+	var root: Node = _player.get_node_or_null(_player.root_node) if _player else self
+	# Like the (deterministic) AnimationPlayer, fields the
+	# animation doesn't set take their RESET values.
+	var base: Dictionary[StringName, Dictionary] = {}
+	var reset := _source_animation(&"RESET")
+	if reset:
+		base = _sample_overrides(reset, 0.0, root)
+	var saved := _overrides
+	for time in times:
+		_overrides = _sample_overrides(animation, time, root, base)
+		_rebuild_pose()
+		var mesh := RenderingServer.mesh_create()
+		RenderingServer.mesh_add_surface(mesh, model.surface)
+		var attributes := Image.create_from_data(model.attribute_stride / 4, model.vertex_count,
+				false, Image.FORMAT_RF, model.surface.attribute_data)
+		result.append([mesh, _update_mesh(mesh, attributes, model, _compute_transforms(model))])
+	_overrides = saved
+	_rebuild_pose()
+	return result
+
+
+# The shape fields animation sets on this figure at time, as overrides (shape
+# name -> field -> value), on top of base. root is the node its track paths
+# are relative to.
+func _sample_overrides(animation: Animation, time: float, root: Node,
+		base: Dictionary[StringName, Dictionary] = {}) -> Dictionary[StringName, Dictionary]:
+	var overrides: Dictionary[StringName, Dictionary] = base.duplicate(true)
+	for track in animation.get_track_count():
+		if animation.track_get_type(track) != Animation.TYPE_VALUE \
+				or not animation.track_is_enabled(track) or animation.track_get_key_count(track) == 0:
+			continue
+		var path := animation.track_get_path(track)
+		if path.get_subname_count() == 0:
+			continue
+		var parsed := _parse_shape_property(StringName(path.get_subname(0)))
+		if parsed.is_empty() or (root and root.get_node_or_null(
+				NodePath(path.get_concatenated_names())) != self):
+			continue
+		var found := _find_shape(parsed[0])
+		if not found:
+			continue
+		var value: Variant
+		if animation.value_track_get_update_mode(track) == Animation.UPDATE_CONTINUOUS:
+			value = animation.value_track_interpolate(track, time)
+		else:
+			# Discrete (e.g. visible): the last key at or before time.
+			value = animation.track_get_key_value(track, maxi(animation.track_find_key(track, time), 0))
+		if not overrides.has(parsed[0]):
+			overrides[parsed[0]] = {}
+		var fields: Dictionary = overrides[parsed[0]]
+		if path.get_subname_count() > 1:
+			var whole: Variant = fields.get(parsed[1], found.get(parsed[1]))
+			whole[path.get_subname(1)] = value
+			value = whole
+		fields[parsed[1]] = value
+	return overrides
 
 
 # Animations are stepped (by _process()) when animation_fps is set, in game.
@@ -350,6 +558,7 @@ func explode(intensity: float) -> void:
 
 	_explosion_time = 0.0
 	_update_processing()
+	_update_cached_frames()
 	queue_redraw()
 
 
@@ -357,6 +566,7 @@ func explode(intensity: float) -> void:
 func reassemble() -> void:
 	_explosion_time = -1.0
 	_update_processing()
+	_update_cached_frames()
 	queue_redraw()
 
 
@@ -384,23 +594,27 @@ func _notification(what: int) -> void:
 ## Overrides the position (relative to its parent) of the shape with the given
 ## name, for this figure only. Same as setting "shapes/<name>/position".
 func set_shape_position(shape_name: StringName, value: Vector3) -> void:
+	_override_live()
 	_set_shape_field(shape_name, &"position", value)
 
 
 ## Overrides the rotation (relative to its parent) of the shape with the given
 ## name, for this figure only.
 func set_shape_rotation_degrees(shape_name: StringName, value: Vector3) -> void:
+	_override_live()
 	_set_shape_field(shape_name, &"rotation_degrees", value)
 
 
 ## Overrides the scale of the shape with the given name, for this figure only.
 func set_shape_scale(shape_name: StringName, value: Vector3) -> void:
+	_override_live()
 	_set_shape_field(shape_name, &"scale", value)
 
 
 ## Overrides whether the shape with the given name is visible, for this figure
 ## only.
 func set_shape_visible(shape_name: StringName, value: bool) -> void:
+	_override_live()
 	_set_shape_field(shape_name, &"visible", value)
 
 
@@ -423,7 +637,8 @@ func _find_shape(shape_name: StringName) -> GeoShape:
 
 
 func _get_shape_field(shape_name: StringName, field: StringName) -> Variant:
-	var overrides: Dictionary = _overrides.get(shape_name, {})
+	var overrides: Dictionary = _residual_pose().get(shape_name, {}) if _is_residual() \
+			else _overrides.get(shape_name, {})
 	if overrides.has(field):
 		return overrides[field]
 	var found := _find_shape(shape_name)
@@ -442,6 +657,10 @@ func _set_shape_field(shape_name: StringName, field: StringName, value: Variant)
 		if not _overrides.has(shape_name):
 			_overrides[shape_name] = {}
 		_overrides[shape_name][field] = value
+	if _cached_frames:
+		# The cached frame shows the pose; it's only needed again if that stops.
+		_pose_dirty = true
+		return
 	queue_redraw()
 	if not _mesh_model:
 		return # _draw() will apply all overrides.
@@ -582,6 +801,15 @@ func _set(property: StringName, value: Variant) -> bool:
 	var parsed := _parse_shape_property(property)
 	if not parsed:
 		return false
+	if _cached_frames:
+		# A cached frame shows the pose, so just keep the value, as cheaply as
+		# possible (animations set every track every step). The pose is rebuilt
+		# if the figure goes back to rendering live.
+		if not _overrides.has(parsed[0]):
+			_overrides[parsed[0]] = {}
+		_overrides[parsed[0]][parsed[1]] = value
+		_pose_dirty = true
+		return true
 	_set_shape_field(parsed[0], parsed[1], value)
 	return true
 
@@ -617,6 +845,11 @@ func _draw() -> void:
 		_set_model(model)
 	if model.surface.is_empty():
 		return
+	_update_cached_frames(false)
+	if _cached_frames:
+		_release_atlas_cell()
+		_draw_cached_frame()
+		return
 	var fade := 1.0
 	if is_exploding():
 		var progress := _explosion_time / explosion_duration
@@ -624,11 +857,29 @@ func _draw() -> void:
 		if fade <= 0.0:
 			return
 
-	var shape_count := model.shapes.size()
+	if _pose_dirty:
+		_rebuild_pose()
 	var transforms := _compute_transforms(model)
 	if is_exploding():
 		_apply_explosion(transforms)
+	var reach := _update_mesh(_mesh, _attributes, model, transforms)
+	if reach < 0.0:
+		return
+	var modulate_color := Color(1.0, 1.0, 1.0, fade)
+	if pixel_material:
+		_draw_pixelated(reach, modulate_color)
+	else:
+		RenderingServer.canvas_item_add_mesh(get_canvas_item(), _mesh, Transform2D(),
+				modulate_color)
 
+
+# Fills mesh (a copy of model's surface, with attributes its attribute data)
+# with the shapes at transforms: their vertices in view space, front faces only,
+# sorted back to front. Returns how far the drawn shapes reach from the origin,
+# or -1 if nothing is drawn.
+func _update_mesh(mesh: RID, attributes: Image, model: GeoCompiledModel,
+		transforms: Array[Transform3D]) -> float:
+	var shape_count := model.shapes.size()
 	# Transform every shape's vertices and normals into view space. (The
 	# transform of packed arrays happens in native code.) Normals transform by
 	# the inverse transpose, which keeps them perpendicular to scaled surfaces.
@@ -672,7 +923,7 @@ func _draw() -> void:
 		reach = maxf(reach, xform.origin.length() + radius)
 		order.append(i)
 	if order.is_empty():
-		return
+		return -1.0
 	order.sort_custom(func(a: int, b: int) -> bool:
 		return depths[a] < depths[b] if depths[a] != depths[b] else a < b)
 
@@ -686,30 +937,25 @@ func _draw() -> void:
 			if facing[face].z > _FACING_EPSILON:
 				indices.append_array(faces[face])
 	if indices.is_empty():
-		return
+		return -1.0
 	indices.resize(model.index_capacity_bytes)
 
 	# Copy in the normals and draw ranks. Assumes single-precision floats (the
 	# default engine build).
 	_normals_image.set_data(3, model.vertex_count, false, Image.FORMAT_RF,
 			normals.to_byte_array())
-	_attributes.blit_rect(_normals_image, Rect2i(0, 0, 3, model.vertex_count),
+	attributes.blit_rect(_normals_image, Rect2i(0, 0, 3, model.vertex_count),
 			Vector2i(model.normal_offset / 4, 0))
 	for rank in order.size():
 		var i := order[rank]
-		_attributes.fill_rect(Rect2i(model.rank_offset / 4, model.vertex_offsets[i],
+		attributes.fill_rect(Rect2i(model.rank_offset / 4, model.vertex_offsets[i],
 				1, model.vertex_counts[i]), Color(rank, 0.0, 0.0))
 
-	RenderingServer.mesh_surface_update_vertex_region(_mesh, 0, 0, positions.to_byte_array())
-	RenderingServer.mesh_surface_update_attribute_region(_mesh, 0, 0, _attributes.get_data())
-	RenderingServer.mesh_surface_update_index_region(_mesh, 0, 0, indices)
-	RenderingServer.mesh_set_custom_aabb(_mesh, bounds)
-	var modulate_color := Color(1.0, 1.0, 1.0, fade)
-	if pixel_material:
-		_draw_pixelated(reach, modulate_color)
-	else:
-		RenderingServer.canvas_item_add_mesh(get_canvas_item(), _mesh, Transform2D(),
-				modulate_color)
+	RenderingServer.mesh_surface_update_vertex_region(mesh, 0, 0, positions.to_byte_array())
+	RenderingServer.mesh_surface_update_attribute_region(mesh, 0, 0, attributes.get_data())
+	RenderingServer.mesh_surface_update_index_region(mesh, 0, 0, indices)
+	RenderingServer.mesh_set_custom_aabb(mesh, bounds)
+	return reach
 
 
 # Returns each shape's transform into view space.

@@ -49,8 +49,24 @@ AnimationPlayer, it uses that instead. That's handy in an editing scene, since
 Godot's Animation panel needs an AnimationPlayer in the open scene.
 
 Set `animation_fps` (e.g. 12) to play animations in steps, like hand-drawn
-frames, while their keys stay smooth. Stepped figures are also much cheaper:
-they only redraw on each step, and figures spread their steps across frames.
+frames, while their keys stay smooth.
+
+Stepped, pixelated figures in game draw pre-rendered frames rather than
+rendering their shapes. The frames are built automatically the first time an
+animation plays, in one render, and shared by every figure with the same shape,
+animation, frame rate, `model_rotation_degrees` and camera (see
+`pixel/geo_animation_cache.gd`). They look the same as live rendering, with
+outlines and flashes, and cost a fraction as much. Figures render live instead:
+- in the editor;
+- while exploding;
+- after code overrides a shape with `set_shape_*()`, until the next `play()`
+  or `stop()`;
+- when smooth or unpixelated.
+
+Turn the cache off with `GeoAnimationCache.enabled = false`.
+
+Animations play deterministically: shape fields an animation doesn't set take
+their RESET values.
 
 The GeoFigure Editor sets this up for you, and can key poses into these
 animations.
