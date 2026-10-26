@@ -136,6 +136,7 @@ func setup(owner_editor: Object, title: String, view_elevation: float,
 
 func set_shape(shape: GeoShape) -> void:
 	figure.shape = shape
+	figure.reassemble()
 	_hover = null
 	_needs_frame = true
 	invalidate()

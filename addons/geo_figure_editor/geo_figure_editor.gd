@@ -92,6 +92,8 @@ var _player_option := OptionButton.new()
 var _animation_label := Label.new()
 var _key_button := Button.new()
 var _reset_button := Button.new()
+var _explode_button := Button.new()
+var _hit_button := Button.new()
 var _stepped_check := CheckBox.new()
 var _fps_spin := SpinBox.new()
 var _players: Array[AnimationPlayer] = []
@@ -261,6 +263,18 @@ func _build_animation_bar() -> void:
 	_reset_button.tooltip_text = "Apply the RESET animation, returning the figure to its rest pose."
 	_reset_button.pressed.connect(apply_reset)
 	_animation_bar.add_child(_reset_button)
+	_explode_button.text = "Explode"
+	_explode_button.focus_mode = FOCUS_NONE
+	_explode_button.tooltip_text = ("Preview the figure exploding (GeoFigure.explode() at full"
+			+ " intensity) in the views. Reset puts it back together.")
+	_explode_button.pressed.connect(preview_explosion)
+	_animation_bar.add_child(_explode_button)
+	_hit_button.text = "Hit"
+	_hit_button.focus_mode = FOCUS_NONE
+	_hit_button.tooltip_text = ("Preview the figure flashing white when hit (GeoFigure.flash()) in"
+			+ " the views. Needs a styled view.")
+	_hit_button.pressed.connect(preview_hit)
+	_animation_bar.add_child(_hit_button)
 	_animation_bar.add_child(VSeparator.new())
 	_stepped_check.text = "Stepped"
 	_stepped_check.focus_mode = FOCUS_NONE
@@ -431,11 +445,29 @@ func key_pose(whole_selection := false) -> void:
 	_update_animation_bar()
 
 
-## Applies the player's RESET animation, as one undo action.
+## Puts exploded views back together, and applies the player's RESET animation,
+## as one undo action.
 func apply_reset() -> void:
-	commit("Reset pose", animator.reset_changes(), true)
+	for view in views:
+		view.figure.reassemble()
+	if animator.has_reset():
+		commit("Reset pose", animator.reset_changes(), true)
 	animator.changed.clear()
 	_update_animation_bar()
+
+
+## Explodes the views' figures, as GeoFigure.explode() would in game.
+func preview_explosion() -> void:
+	for view in views:
+		view.figure.reassemble()
+		view.figure.explode(1.0)
+	_update_animation_bar()
+
+
+## Flashes the views' figures white, as GeoFigure.flash() would in game.
+func preview_hit() -> void:
+	for view in views:
+		view.figure.flash()
 
 
 ## Gives the shape an animation library (saved beside its file) and the figure
@@ -596,7 +628,8 @@ func _update_animation_bar() -> void:
 	_animate_button.set_pressed_no_signal(animating)
 	_player_option.visible = _players.size() > 1
 	_key_button.disabled = not animating
-	_reset_button.disabled = not animator.has_reset()
+	_reset_button.disabled = not animator.has_reset() \
+			and not views.any(func(view: View) -> bool: return view.figure.is_exploding())
 	var text := ""
 	if not player:
 		text = "No AnimationPlayer animates this figure. Set Up Animation adds one."

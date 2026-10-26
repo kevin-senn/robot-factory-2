@@ -20,7 +20,7 @@ editor for building shape trees.
 
 | File | |
 |---|---|
-| `geo_figure.gd` | **GeoFigure**: the node that draws a shape tree. Per-part animation (`shapes/<name>/...` properties), flashing, exploding. |
+| `geo_figure.gd` | **GeoFigure**: the node that draws a shape tree. Per-part animation (`shapes/<name>/...` properties), flashing (`flash()`), exploding. |
 | `geo_shape.gd` | **GeoShape**: the base class for shapes, with name, colour, transform and children. |
 | `geo_camera.gd`, `default_geo_camera.tres` | **GeoCamera**: elevation and pixel size, shared by figures. Edit the default to change every figure. |
 | `geo_geometry.gd`, `geo_compiled_model.gd` | Shape geometry, and shape trees flattened for drawing. |
@@ -72,7 +72,8 @@ Animations play deterministically: shape fields an animation doesn't set take
 their RESET values.
 
 The GeoFigure Editor sets this up for you, and can key poses into these
-animations.
+animations. Its Explode and Hit buttons preview `explode()` and `flash()` in its
+views; Reset puts the figure back together.
 
 ## Custom shapes
 

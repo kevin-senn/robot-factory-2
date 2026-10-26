@@ -100,7 +100,7 @@ var model_rotation_degrees := Vector3.ZERO:
 		set_instance_shader_parameter(&"flash_color", value)
 
 ## How far the figure is mixed toward flash_color, from 0 (not at all) to 1
-## (a solid silhouette). Animate it for flashes.
+## (a solid silhouette). flash() tweens it for a quick flash.
 @export_range(0.0, 1.0, 0.01) var flash_amount := 0.0:
 	set(value):
 		flash_amount = value
@@ -202,6 +202,8 @@ var _sampled_time := -1.0
 # random base per figure, plus the cached frame, or a count of live redraws.
 var _line_seed_base := 0.0
 var _redraw_count := 0
+# The tween run by flash(), if any.
+var _flash_tween: Tween
 
 
 func _init() -> void:
@@ -586,6 +588,19 @@ func explode(intensity: float) -> void:
 	_update_cached_frames()
 	queue_redraw()
 
+
+
+## Flashes the figure toward color (e.g. white when hit): flash_amount jumps to
+## 1, then fades back to 0 over duration seconds. Needs a style. Returns the
+## tween, e.g. to await its finished signal; a new flash replaces it.
+func flash(color := Color.WHITE, duration := 0.35) -> Tween:
+	if _flash_tween:
+		_flash_tween.kill()
+	flash_color = color
+	flash_amount = 1.0
+	_flash_tween = create_tween()
+	_flash_tween.tween_property(self, ^"flash_amount", 0.0, duration)
+	return _flash_tween
 
 ## Puts an exploded figure back together.
 func reassemble() -> void:
