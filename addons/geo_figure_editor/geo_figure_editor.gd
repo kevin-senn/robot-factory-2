@@ -28,6 +28,8 @@ const _SETTING_SNAP := "geo_figure_editor/snap_enabled"
 const _SETTING_SNAP_STEP := "geo_figure_editor/snap_step"
 const _SETTING_KEEP_PLACE := "geo_figure_editor/reparent_keeps_place"
 const _SETTING_PIXEL_SIZE := "geo_figure_editor/pixel_size"
+const _SETTING_PREVIEW_STEPPED := "geo_figure_editor/preview_stepped"
+const _SETTING_PREVIEW_FPS := "geo_figure_editor/preview_fps"
 
 ## The plugin, when running in the editor.
 var plugin: EditorPlugin
@@ -49,6 +51,10 @@ var reparent_keeps_place := true
 ## The size of each art pixel in the pixelated views, in the figure's units.
 ## Only the views use it; figures in scenes keep their own camera's.
 var pixel_size := GeoCamera.DEFAULT_PIXEL_SIZE
+## Whether the views show playing animations in steps of 1 / preview_fps seconds
+## (like GeoFigure.animation_fps in game) rather than smoothly.
+var preview_stepped := false
+var preview_fps := 12
 
 var views: Array[View] = []
 var shape_tree: ShapeTree
@@ -79,6 +85,8 @@ var _player_option := OptionButton.new()
 var _animation_label := Label.new()
 var _key_button := Button.new()
 var _reset_button := Button.new()
+var _stepped_check := CheckBox.new()
+var _fps_spin := SpinBox.new()
 var _players: Array[AnimationPlayer] = []
 var _player_refresh_time := 0.0
 var _watched_library: AnimationLibrary
@@ -245,6 +253,29 @@ func _build_animation_bar() -> void:
 	_reset_button.tooltip_text = "Apply the RESET animation, returning the figure to its rest pose."
 	_reset_button.pressed.connect(apply_reset)
 	_animation_bar.add_child(_reset_button)
+	_animation_bar.add_child(VSeparator.new())
+	_stepped_check.text = "Stepped"
+	_stepped_check.focus_mode = FOCUS_NONE
+	_stepped_check.tooltip_text = ("Preview playing animations in steps of 1 / FPS seconds, like"
+			+ " GeoFigure.animation_fps in game (the keys stay smooth). Off: smooth.")
+	_stepped_check.toggled.connect(func(on: bool) -> void:
+		preview_stepped = on
+		_fps_spin.editable = on
+		_save_setting(_SETTING_PREVIEW_STEPPED, on))
+	_animation_bar.add_child(_stepped_check)
+	_fps_spin.min_value = 1
+	_fps_spin.max_value = 60
+	_fps_spin.step = 1
+	_fps_spin.rounded = true
+	_fps_spin.allow_greater = true
+	_fps_spin.suffix = "fps"
+	_fps_spin.value = preview_fps
+	_fps_spin.editable = preview_stepped
+	_fps_spin.tooltip_text = "Frames per second for the stepped preview."
+	_fps_spin.value_changed.connect(func(value: float) -> void:
+		preview_fps = maxi(roundi(value), 1)
+		_save_setting(_SETTING_PREVIEW_FPS, preview_fps))
+	_animation_bar.add_child(_fps_spin)
 	_animation_label.add_theme_color_override(&"font_color", Color(1.0, 1.0, 1.0, 0.7))
 	_animation_bar.add_child(_animation_label)
 
@@ -256,7 +287,8 @@ func load_settings() -> void:
 		return
 	var settings := EditorInterface.get_editor_settings()
 	for entry: Array in [[_SETTING_SNAP, snap_enabled], [_SETTING_SNAP_STEP, snap_step],
-			[_SETTING_KEEP_PLACE, reparent_keeps_place], [_SETTING_PIXEL_SIZE, pixel_size]]:
+			[_SETTING_KEEP_PLACE, reparent_keeps_place], [_SETTING_PIXEL_SIZE, pixel_size],
+			[_SETTING_PREVIEW_STEPPED, preview_stepped], [_SETTING_PREVIEW_FPS, preview_fps]]:
 		if not settings.has_setting(entry[0]):
 			settings.set_setting(entry[0], entry[1])
 		settings.set_initial_value(entry[0], entry[1], false)
@@ -267,6 +299,11 @@ func load_settings() -> void:
 	_snap_check.set_pressed_no_signal(snap_enabled)
 	_snap_spin.set_value_no_signal(snap_step)
 	_keep_place_check.set_pressed_no_signal(reparent_keeps_place)
+	preview_stepped = settings.get_setting(_SETTING_PREVIEW_STEPPED)
+	preview_fps = settings.get_setting(_SETTING_PREVIEW_FPS)
+	_stepped_check.set_pressed_no_signal(preview_stepped)
+	_fps_spin.set_value_no_signal(preview_fps)
+	_fps_spin.editable = preview_stepped
 	set_pixel_size(saved_pixel_size)
 
 
@@ -469,11 +506,12 @@ func _sync_pose() -> void:
 	if not animating or not root or not is_instance_valid(figure):
 		return
 	var model := root.get_compiled()
+	var stepped := _stepped_values()
 	var changed := false
 	for shape_name: StringName in model.shape_indices:
 		for field in Animator.FIELDS:
 			var property := StringName("shapes/%s/%s" % [shape_name, field])
-			var value: Variant = figure.get(property)
+			var value: Variant = stepped[property] if stepped.has(property) else figure.get(property)
 			if _pose_cache.has(property) and _pose_cache[property] == value:
 				continue
 			_pose_cache[property] = value
@@ -484,6 +522,37 @@ func _sync_pose() -> void:
 		for view in views:
 			view.invalidate()
 		shape_tree.update_items()
+
+
+# With the stepped preview, while the animation plays: its tracks' values for
+# the figure's shapes at the last whole frame, as property -> value. (Paused or
+# scrubbing, the views show the figure as posed, so posing isn't hidden.)
+func _stepped_values() -> Dictionary:
+	var values := {}
+	var player := animator.player
+	var animation := animator.current_animation()
+	if not preview_stepped or not animation or not player.is_playing():
+		return values
+	var root_node := player.get_node_or_null(player.root_node)
+	if not root_node:
+		return values
+	var time := floorf(animator.current_time() * preview_fps + 0.0001) / preview_fps
+	for track in animation.get_track_count():
+		if animation.track_get_type(track) != Animation.TYPE_VALUE \
+				or not animation.track_is_enabled(track):
+			continue
+		var path := animation.track_get_path(track)
+		if path.get_subname_count() == 0 or not path.get_subname(0).begins_with("shapes/") \
+				or root_node.get_node_or_null(NodePath(path.get_concatenated_names())) != figure:
+			continue
+		var property := StringName(path.get_subname(0))
+		var value: Variant = animation.value_track_interpolate(track, time)
+		if path.get_subname_count() > 1:
+			var whole: Variant = values.get(property, figure.get(property))
+			whole[path.get_subname(1)] = value
+			value = whole
+		values[property] = value
+	return values
 
 
 func _refresh_players() -> void:

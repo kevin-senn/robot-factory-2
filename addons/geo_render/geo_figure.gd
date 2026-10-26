@@ -54,6 +54,11 @@ static var _property_parse_cache: Dictionary[StringName, Array] = {}
 			shape.changed.connect(queue_redraw)
 		queue_redraw()
 		update_configuration_warnings()
+		if _owns_player:
+			_player.remove_animation_library(&"")
+			if shape and shape.animations:
+				_player.add_animation_library(&"", shape.animations)
+		notify_property_list_changed()
 
 @export var camera: GeoCamera = preload("res://addons/geo_render/default_geo_camera.tres"):
 	set(value):
@@ -93,6 +98,19 @@ var model_rotation_degrees := Vector3.ZERO:
 	set(value):
 		flash_amount = value
 		set_instance_shader_parameter(&"flash_amount", value)
+
+@export_group("Animation")
+## The animation to play when the game starts (see play()).
+@export var autoplay: StringName
+
+## 0 plays animations smoothly. Otherwise they advance in steps of
+## 1 / animation_fps seconds, like hand-drawn frames, though their keys stay
+## smooth. Stepped figures also cost less, since they only change on each
+## step. (Only in game: the editor's Animation panel always plays smoothly.)
+@export_range(0, 60, 1, "or_greater", "suffix:fps") var animation_fps := 0:
+	set(value):
+		animation_fps = maxi(value, 0)
+		_update_processing()
 
 @export_group("Explosion")
 ## How long the pieces fly (and fade) for, in seconds.
@@ -147,6 +165,14 @@ var _piece_spin_axes := PackedVector3Array()
 var _piece_spin_angles := PackedFloat32Array()
 var _rng := RandomNumberGenerator.new()
 
+# The player for play() (see get_animation_player()), whether this figure made
+# it, its callback mode before stepping took it over, and the time not yet
+# stepped.
+var _player: AnimationPlayer
+var _owns_player := false
+var _player_callback_mode := AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
+var _step_time := 0.0
+
 
 func _init() -> void:
 	# The setter doesn't run for the default value.
@@ -155,21 +181,103 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	set_process(is_exploding())
+	_update_processing()
 	# The setters don't run for default values.
 	set_instance_shader_parameter(&"flash_color", flash_color)
 	set_instance_shader_parameter(&"flash_amount", flash_amount)
+	if autoplay and not Engine.is_editor_hint():
+		play(autoplay)
 
 
 func _process(delta: float) -> void:
-	if not is_exploding():
-		set_process(false)
+	if _is_stepping():
+		_step_time += delta
+		var step := 1.0 / animation_fps
+		if _step_time >= step:
+			var steps := floorf(_step_time / step)
+			_step_time -= steps * step
+			_player.advance(steps * step) # advance() applies speed_scale itself.
+	if _is_explosion_running():
+		_explosion_time = minf(_explosion_time + delta, explosion_duration)
+		queue_redraw()
+		if not _is_explosion_running():
+			explosion_finished.emit()
+	_update_processing()
+
+
+## Plays an animation from shape.animations (or from a child AnimationPlayer's
+## libraries, if the figure has one). With from_start false, an animation that's
+## already playing carries on.
+func play(animation_name: StringName, from_start := true) -> void:
+	var player := get_animation_player()
+	if not player or not player.has_animation(animation_name):
+		push_warning("GeoFigure has no animation named '%s'." % animation_name)
 		return
-	_explosion_time = minf(_explosion_time + delta, explosion_duration)
-	queue_redraw()
-	if _explosion_time >= explosion_duration:
-		set_process(false)
-		explosion_finished.emit()
+	if from_start or player.assigned_animation != animation_name:
+		player.play(animation_name)
+		player.seek(0.0, true)
+		# Stepped figures start their step clocks at random points, so figures
+		# that start together don't all redraw in the same frames.
+		_step_time = _rng.randf() / animation_fps if animation_fps > 0 else 0.0
+	elif not player.is_playing():
+		player.play()
+	_update_processing()
+
+
+## Stops the playing animation, leaving the figure posed as it is.
+func stop() -> void:
+	if _player:
+		_player.stop(true)
+	_update_processing()
+
+
+func is_playing() -> bool:
+	return _player != null and _player.is_playing()
+
+
+## The AnimationPlayer that play() uses: a child AnimationPlayer, if the figure
+## has one (e.g. so the Animation panel can edit its animations), else one made
+## on first use from shape.animations, which isn't part of the scene (it's an
+## internal child, never saved). Null if there are no animations.
+func get_animation_player() -> AnimationPlayer:
+	if _player and is_instance_valid(_player) and _player.get_parent() == self:
+		return _player
+	_player = null
+	_owns_player = false
+	for child in get_children():
+		if child is AnimationPlayer:
+			_player = child
+			break
+	if not _player and shape and shape.animations:
+		_player = AnimationPlayer.new()
+		_player.add_animation_library(&"", shape.animations)
+		add_child(_player, false, INTERNAL_MODE_BACK)
+		_owns_player = true
+	if _player:
+		_player_callback_mode = _player.callback_mode_process
+	return _player
+
+
+# Animations are stepped (by _process()) when animation_fps is set, in game.
+func _is_stepping() -> bool:
+	return animation_fps > 0 and _player != null and is_instance_valid(_player) \
+			and not Engine.is_editor_hint()
+
+
+# Whether pieces are still flying (an exploded figure stays exploded, faded
+# out, until reassemble()).
+func _is_explosion_running() -> bool:
+	return is_exploding() and _explosion_time < explosion_duration
+
+
+func _update_processing() -> void:
+	var stepping := _is_stepping()
+	if _player and is_instance_valid(_player) and not Engine.is_editor_hint():
+		var mode := AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL if stepping \
+				else _player_callback_mode
+		if _player.callback_mode_process != mode:
+			_player.callback_mode_process = mode
+	set_process(stepping or _is_explosion_running())
 
 
 ## Breaks the figure into pieces (see GeoShape.glued) that fly apart and fade
@@ -241,14 +349,14 @@ func explode(intensity: float) -> void:
 				* _rng.randf_range(0.5, 1.0)
 
 	_explosion_time = 0.0
-	set_process(true)
+	_update_processing()
 	queue_redraw()
 
 
 ## Puts an exploded figure back together.
 func reassemble() -> void:
 	_explosion_time = -1.0
-	set_process(false)
+	_update_processing()
 	queue_redraw()
 
 
@@ -384,6 +492,17 @@ static func _parse_shape_property(property: StringName) -> Array:
 			parsed = [StringName(parts[1]), StringName(parts[2])]
 		_property_parse_cache[property] = parsed
 	return parsed
+
+
+# Suggests the shape's animations for autoplay.
+func _validate_property(property: Dictionary) -> void:
+	if property.name == "autoplay" and shape and shape.animations:
+		var names := PackedStringArray()
+		for animation_name in shape.animations.get_animation_list():
+			if animation_name != &"RESET":
+				names.append(animation_name)
+		property.hint = PROPERTY_HINT_ENUM_SUGGESTION
+		property.hint_string = ",".join(names)
 
 
 func _get_property_list() -> Array[Dictionary]:

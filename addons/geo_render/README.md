@@ -37,11 +37,20 @@ animate them.
 To share a figure's animations with every figure using its shape:
 1. Store them in an AnimationLibrary (its own `.tres` file), and set it as the
    root shape's `animations`.
-2. Give each GeoFigure a child AnimationPlayer that uses that library.
-3. Make the tracks relative to the figure, e.g.
+2. Make the tracks relative to the figure, e.g.
    `.:shapes/antenna/rotation_degrees:z`.
 
 Duplicating a shape shares its library rather than copying it.
+
+Play the animations with the figure itself: `play("walk")`, `stop()`, or its
+`autoplay` setting. No AnimationPlayer node is needed in your scene; the figure
+creates a hidden one, which isn't saved. If the figure has a child
+AnimationPlayer, it uses that instead. That's handy in an editing scene, since
+Godot's Animation panel needs an AnimationPlayer in the open scene.
+
+Set `animation_fps` (e.g. 12) to play animations in steps, like hand-drawn
+frames, while their keys stay smooth. Stepped figures are also much cheaper:
+they only redraw on each step, and figures spread their steps across frames.
 
 The GeoFigure Editor sets this up for you, and can key poses into these
 animations.

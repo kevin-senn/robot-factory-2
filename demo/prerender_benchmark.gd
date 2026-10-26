@@ -18,6 +18,8 @@ extends Node2D
 
 ## Whether the sprites are shown instead of live figures.
 var sprite_mode := false
+## The live figures' GeoFigure.animation_fps (0: smooth).
+var live_fps := 0
 
 var _frames: SpriteFrames
 var _items: Array[Node2D] = []
@@ -50,6 +52,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	match key.keycode:
 		KEY_SPACE:
 			set_mode(not sprite_mode)
+		KEY_F:
+			live_fps = 0 if live_fps else 12
+			_spawn()
 		KEY_UP:
 			set_count(count * 2)
 		KEY_DOWN:
@@ -58,10 +63,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(_delta: float) -> void:
 	_stats.text = "%s: %d figures   %d FPS   update %.2f ms   draw calls %d\n%s" % [
-		"Sprites" if sprite_mode else "Live GeoFigures", _items.size(),
+		"Sprites" if sprite_mode else ("Live GeoFigures at %d fps" % live_fps if live_fps
+				else "Live GeoFigures"), _items.size(),
 		Engine.get_frames_per_second(), _update_ms,
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
-		"Space: switch mode   Up/Down: count x2 / ÷2"]
+		"Space: switch mode   F: live figures smooth / 12 fps   Up/Down: count x2 / ÷2"]
 
 
 func _on_frame_pre_draw() -> void:
@@ -91,8 +97,7 @@ func _spawn() -> void:
 	if not _frames:
 		return
 	var columns := maxi(int((get_viewport_rect().size.x - spacing.x) / spacing.x), 1)
-	var library := shape.animations
-	var length := library.get_animation(animation_name).length
+	var length := shape.animations.get_animation(animation_name).length
 	for i in count:
 		var at := Vector2(spacing.x * 0.75, spacing.y * 2.0) \
 				+ Vector2(i % columns, i / columns) * spacing
@@ -108,24 +113,22 @@ func _spawn() -> void:
 			sprite.frame = int(start * capture_fps) % _frames.get_frame_count(animation_name)
 			item = sprite
 		else:
-			var figure := _make_figure(library)
+			var figure := _make_figure()
 			figure.scale = Vector2(0.5, 0.5)
-			var player: AnimationPlayer = figure.get_child(0)
-			player.play(animation_name)
-			player.seek(start, true)
+			figure.animation_fps = live_fps
+			figure.autoplay = animation_name
+			figure.ready.connect(func() -> void:
+				figure.get_animation_player().seek(start, true), CONNECT_ONE_SHOT)
 			item = figure
 		item.position = at
 		add_child(item)
 		_items.append(item)
 
 
-func _make_figure(library: AnimationLibrary) -> GeoFigure:
+func _make_figure() -> GeoFigure:
 	var figure := GeoFigure.new()
 	figure.shape = shape
 	figure.model_rotation_degrees = model_rotation_degrees
-	var player := AnimationPlayer.new()
-	player.add_animation_library(&"", library)
-	figure.add_child(player)
 	return figure
 
 
@@ -136,11 +139,11 @@ func _capture_frames() -> void:
 	viewport.transparent_bg = true
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(viewport)
-	var figure := _make_figure(shape.animations)
+	var figure := _make_figure()
 	figure.position = Vector2(_CAPTURE_SIZE.x * 0.5, _CAPTURE_SIZE.y * 0.85)
 	viewport.add_child(figure)
-	var player: AnimationPlayer = figure.get_child(0)
-	player.play(animation_name)
+	figure.play(animation_name)
+	var player := figure.get_animation_player()
 	player.pause()
 	var frames := SpriteFrames.new()
 	frames.remove_animation(&"default")
