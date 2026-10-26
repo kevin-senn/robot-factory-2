@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cbrgivky6pqlk"]
+
+[ext_resource type="Shader" uid="uid://c655s1l00jmq4" path="res://addons/geo_render/styles/geo_pixel_dither_lighting.gdshader" id="1_shader"]
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/light_direction = Vector3(-0.4, -0.7, 0.6)
+shader_parameter/shadow_brightness = 0.6
+shader_parameter/middle_brightness = 0.8
+shader_parameter/light_brightness = 1.0
+shader_parameter/middle_from = 0.15
+shader_parameter/light_from = 0.42
+shader_parameter/dither_width = 0.14

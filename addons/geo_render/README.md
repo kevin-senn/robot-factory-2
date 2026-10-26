@@ -26,7 +26,7 @@ editor for building shape trees.
 | `geo_geometry.gd`, `geo_compiled_model.gd` | Shape geometry, and shape trees flattened for drawing. |
 | `shapes/` | Built-in shapes: Box, Cylinder, Disc, Group, Line, Panel, Sphere, Triangle. |
 | `geo_style.gd` | **GeoStyle**: how figures look (a lighting pass and a display shader). |
-| `styles/` | Built-in styles: `pixel_art.tres` (the default) and `cel.tres` (flat shading, sketchy outlines), with the cel shaders. |
+| `styles/` | Built-in styles: `pixel_art.tres` (the default), `pixel_cel.tres`, `pixel_dither.tres` and `cel.tres` (flat shading, sketchy outlines), with their shaders. |
 | `pixel/` | Styled drawing: the shared atlas, the animation frame cache, and the pixel art shaders. |
 | `geo_shading_example.gdshader` | An example shader for smooth (non-pixel) figures. |
 
@@ -107,6 +107,10 @@ can use the keys to find edges, e.g. for outlines.
 
 **Built-in styles:**
 - `styles/pixel_art.tres`: uses the camera's `pixel_size`.
+- `styles/pixel_cel.tres`: pixel art with flat bands of shading instead of smooth
+  shading, like an old computer's limited palette.
+- `styles/pixel_dither.tres`: pixel art shaded with an ordered dither between
+  three brightness levels.
 - `styles/cel.tres`: 0.5 units per texel, with a margin for lines drawn
   outside the shapes. Its display shader's parameters set the line colour,
   width, wobble and wiggle. Lines re-squiggle whenever the figure's pose

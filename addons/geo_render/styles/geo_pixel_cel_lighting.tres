@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://d0m7x4a2t8r7m"]
+
+[ext_resource type="Shader" uid="uid://ci7pa8mxqtok2" path="res://addons/geo_render/styles/geo_cel_lighting.gdshader" id="1_shader"]
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/light_direction = Vector3(-0.4, -0.7, 0.6)
+shader_parameter/shadow_brightness = 0.6
+shader_parameter/middle_brightness = 0.8
+shader_parameter/middle_from = 0.25
+shader_parameter/light_from = 0.42000001995

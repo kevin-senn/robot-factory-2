@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="GeoStyle" format=3 uid="uid://v81nlfb84bpl"]
+
+[ext_resource type="Script" uid="uid://bal6jfxp774xh" path="res://addons/geo_render/geo_style.gd" id="1_style"]
+[ext_resource type="Material" uid="uid://cbrgivky6pqlk" path="res://addons/geo_render/styles/geo_pixel_dither_lighting.tres" id="2_lighting"]
+[ext_resource type="Material" uid="uid://dma14epveh157" path="res://addons/geo_render/pixel/geo_pixel_display.tres" id="3_display"]
+
+[resource]
+script = ExtResource("1_style")
+lighting_material = ExtResource("2_lighting")
+display_material = ExtResource("3_display")

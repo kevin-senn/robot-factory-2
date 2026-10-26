@@ -22,7 +22,12 @@ const Animator := preload("res://addons/geo_figure_editor/geo_figure_animator.gd
 
 const _PLAYER_REFRESH_SECONDS := 0.5
 const _PIXEL_ART := preload("res://addons/geo_render/styles/pixel_art.tres")
-const _CEL := preload("res://addons/geo_render/styles/cel.tres")
+const _BUILT_IN_STYLES: Array[GeoStyle] = [
+	_PIXEL_ART,
+	preload("res://addons/geo_render/styles/pixel_cel.tres"),
+	preload("res://addons/geo_render/styles/pixel_dither.tres"),
+	preload("res://addons/geo_render/styles/cel.tres"),
+]
 
 enum Mode { MOVE, ROTATE, SCALE }
 
@@ -664,12 +669,14 @@ func set_pixel_size(value: float) -> void:
 ## The styles views can draw with, as [name, GeoStyle or null for smooth]: the
 ## built-in ones, plus (in the editor) every GeoStyle file in the project.
 func available_styles() -> Array:
-	var styles := [["Smooth", null], [style_name(_PIXEL_ART), _PIXEL_ART], [style_name(_CEL), _CEL]]
+	var styles := [["Smooth", null]]
+	for style in _BUILT_IN_STYLES:
+		styles.append([style_name(style), style])
 	if plugin:
 		var paths := PackedStringArray()
 		_find_style_files(EditorInterface.get_resource_filesystem().get_filesystem(), paths)
 		for path in paths:
-			if path != _PIXEL_ART.resource_path and path != _CEL.resource_path:
+			if not _BUILT_IN_STYLES.any(func(style: GeoStyle) -> bool: return style.resource_path == path):
 				var style := load(path) as GeoStyle
 				if style:
 					styles.append([style_name(style), style])

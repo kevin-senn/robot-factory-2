@@ -1,6 +1,8 @@
-[gd_resource type="ShaderMaterial" format=3]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://dkn2trigyu660"]
 
-[ext_resource type="Shader" path="res://addons/geo_render/pixel/geo_pixel_lighting.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://c6gkbuik5g4i4" path="res://addons/geo_render/pixel/geo_pixel_lighting.gdshader" id="1_shader"]
 
 [resource]
 shader = ExtResource("1_shader")
+shader_parameter/light_direction = Vector3(-0.4, -0.7, 0.6)
+shader_parameter/ambient = 0.45
